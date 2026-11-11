@@ -1,0 +1,6 @@
+CachyOS pixmatic autoinstall ISO
+https://github.com/pixmatic/CachyOS-Live-ISO
+
+Instalación manual:   sudo cachyos-installer
+Instalación headless: sudo cachyos-installer --config /ruta/settings.json
+

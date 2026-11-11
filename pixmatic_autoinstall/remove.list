@@ -1,0 +1,39 @@
+# Rutas (relativas a archiso/) que se eliminan de la copia de trabajo antes de
+# aplicar el overlay. Upstream no se toca: solo se borran en build/.
+
+# Escritorio y gestor de sesión
+airootfs/etc/plasmalogin.conf
+airootfs/etc/plasmalogin.conf.d
+airootfs/etc/skel/.config
+airootfs/etc/pacman.d/hooks/90-cachyos-live-kwin-keyboard.hook
+
+# Calamares y scripts del escritorio live
+airootfs/usr/local/bin/calamares-online.sh
+airootfs/usr/local/bin/dmcheck
+airootfs/usr/local/bin/pkexec-wrapper
+airootfs/usr/local/bin/prepare-live-desktop.sh
+airootfs/usr/local/bin/remove-nvidia
+airootfs/usr/local/bin/removeun
+airootfs/usr/local/bin/removeun-online
+
+# Accesibilidad / sonido
+airootfs/etc/systemd/system/livecd-talk.service
+airootfs/etc/systemd/system/livecd-alsa-unmuter.service
+airootfs/etc/systemd/system/multi-user.target.wants/livecd-talk.service
+airootfs/etc/systemd/system/sound.target.wants
+airootfs/usr/local/share/livecd-sound
+
+# Servicios de paquetes que no se incluyen
+airootfs/etc/systemd/system/bluetooth.target.wants
+airootfs/etc/systemd/system/dbus-org.bluez.service
+airootfs/etc/systemd/system/dbus-org.freedesktop.ModemManager1.service
+airootfs/etc/systemd/system/multi-user.target.wants/ModemManager.service
+airootfs/etc/systemd/system/sockets.target.wants/pcscd.socket
+
+# Herramientas de máquinas virtuales
+airootfs/etc/systemd/system/multi-user.target.wants/hv_fcopy_daemon.service
+airootfs/etc/systemd/system/multi-user.target.wants/hv_kvp_daemon.service
+airootfs/etc/systemd/system/multi-user.target.wants/hv_vss_daemon.service
+airootfs/etc/systemd/system/multi-user.target.wants/vboxservice.service
+airootfs/etc/systemd/system/multi-user.target.wants/vmtoolsd.service
+airootfs/etc/systemd/system/multi-user.target.wants/vmware-vmblock-fuse.service

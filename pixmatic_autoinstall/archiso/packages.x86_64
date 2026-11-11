@@ -1,0 +1,60 @@
+# Paquetes de la ISO pixmatic (sustituye a archiso/packages_desktop.x86_64).
+# Solo consola: sin Plasma, sin Calamares, sin herramientas de rescate.
+
+# Sistema base y arranque del live (grub.cfg/syslinux usan ambos kernels)
+base
+linux-cachyos
+linux-cachyos-zfs
+linux-cachyos-lts
+linux-cachyos-lts-zfs
+linux-firmware
+linux-firmware-marvell
+amd-ucode
+intel-ucode
+mkinitcpio
+mkinitcpio-archiso
+mkinitcpio-nfs-utils
+nbd
+grub
+syslinux
+efibootmgr
+
+# Repositorios y claves
+archlinux-keyring
+cachyos-keyring
+cachyos-mirrorlist
+cachyos-v3-mirrorlist
+cachyos-v4-mirrorlist
+cachyos-rate-mirrors
+
+# Instalador (ejecuta pacstrap, genfstab, arch-chroot y chwd desde el live)
+cachyos-cli-installer-new
+arch-install-scripts
+chwd
+
+# Discos y sistemas de ficheros soportados por el instalador
+btrfs-progs
+cryptsetup
+dosfstools
+e2fsprogs
+f2fs-tools
+gptfdisk
+lvm2
+parted
+xfsprogs
+zfs-utils
+
+# Red
+networkmanager
+wpa_supplicant
+iw
+wireless-regdb
+openssh
+systemd-resolvconf
+
+# Utilidades de consola
+sudo
+nano
+vim
+less
+bash-completion
