@@ -10,3 +10,7 @@ for _f in calamares-online.sh dmcheck pkexec-wrapper prepare-live-desktop.sh \
   unset "file_permissions[/usr/local/bin/${_f}]"
 done
 unset _f
+
+# Configuración del instalador (contendrá contraseñas)
+file_permissions["/etc/pixmatic"]="0:0:700"
+file_permissions["/etc/pixmatic/settings.json"]="0:0:600"

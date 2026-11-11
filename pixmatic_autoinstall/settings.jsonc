@@ -1,0 +1,293 @@
+// Configuración de cachyos-installer para la ISO pixmatic.
+//
+// build.sh elimina las líneas que empiezan por // (se admiten espacios
+// delante), valida el resultado y lo deja en la ISO como
+// /etc/pixmatic/settings.json (permisos 600). Uso manual desde el live:
+//   sudo cachyos-installer --config /etc/pixmatic/settings.json
+//
+// Reglas de edición:
+//  - Solo comentarios de línea completa: nunca // al final de una línea.
+//  - JSON estricto: sin coma tras el último elemento de un objeto o array.
+//  - El instalador rechaza claves desconocidas y valores fuera de lista.
+//  - Para activar una opción comentada basta con quitarle el //.
+//  - Un alias y su clave principal no pueden aparecer a la vez.
+//
+// Valores sacados del código de https://github.com/CachyOS/New-Cli-Installer
+// (commit a257be6, 2026-11-10). La ISO trae el paquete
+// cachyos-cli-installer-new, que puede ir por detrás de git: si rechaza alguna
+// clave o valor, comprobar la versión empaquetada.
+//
+// CONTRASEÑAS: el repo es público. user_pass, root_pass y zfs_passphrase
+// llevan CHANGEME hasta que definamos cómo inyectar secretos en la build.
+{
+    // Reservada; el instalador la acepta pero no la usa.
+    // Valores: cualquier número.
+    // "config_version": 1,
+
+    // ======================================================================
+    // Modo de instalación
+    // ======================================================================
+
+    // Tipo de instalación. Obligatorio este o "menus", nunca ambos.
+    // Valores: "simple" (asistente automático) | "advanced" (menús manuales).
+    "install_type": "simple",
+    // Equivalente numérico de install_type.
+    // Valores: 1 (simple) | 2 (avanzada) | otro número (se pregunta al usuario).
+    // "menus": 1,
+
+    // Instalación desatendida: no pregunta nada y aborta si falta algo.
+    // Exige: device, fs_name, partitions (salvo allow_auto_partition),
+    // user_name, user_pass, root_pass y desktop (o server_profile).
+    // Valores: true | false. Por defecto: false.
+    "headless_mode": true,
+
+    // ======================================================================
+    // Disco y particiones
+    // ======================================================================
+
+    // Disco de destino. SE BORRA ENTERO.
+    // Valores: ruta de dispositivo de bloque (/dev/nvme0n1, /dev/sda, /dev/vda...).
+    // PENDIENTE: disco real.
+    "device": "/dev/nvme0n1",
+
+    // Con true y "partitions" vacío, el instalador borra el disco y decide él
+    // el particionado. Con false, "partitions" es obligatorio.
+    // Valores: true | false. Por defecto: false.
+    "allow_auto_partition": false,
+
+    // Sistema de ficheros de la raíz (lo heredan las particiones root que no
+    // indiquen el suyo).
+    // Valores: "ext4" | "btrfs" | "xfs" | "f2fs" | "zfs".
+    "fs_name": "btrfs",
+
+    // Subvolúmenes btrfs (error si la raíz no es btrfs).
+    // Valores: "default" | array de {"subvolume", "mountpoint"}.
+    // "default" crea /@, /@home, /@root, /@srv, /@cache, /@tmp y /@log.
+    "subvolumes": "default",
+    // Alternativa: layout propio (borrar la línea "default" anterior).
+    // "subvolumes": [
+    //     {"subvolume": "/@", "mountpoint": "/"},
+    //     {"subvolume": "/@home", "mountpoint": "/home"},
+    //     {"subvolume": "/@snapshots", "mountpoint": "/.snapshots"}
+    // ],
+
+    // Opciones de montaje de la raíz.
+    // Valores: opciones de mount separadas por comas.
+    // Por defecto: automáticas según el sistema de ficheros y si el disco es
+    // SSD (recomendado no fijarlas).
+    // "mount_opts": "noatime,compress=zstd",
+
+    // Contraseña de cifrado nativo de ZFS (error si la raíz no es zfs).
+    // Valores: texto plano.
+    // "zfs_passphrase": "CHANGEME",
+
+    // Particiones a crear, en orden. Campos de cada una:
+    //   name:       dispositivo resultante; debe cuadrar con "device"
+    //               (nvme0n1 -> nvme0n1p1, sda -> sda1, vda -> vda1).
+    //   mountpoint: punto de montaje. No puede repetirse.
+    //   size:       tamaño en bytes con sufijo ("512M", "2G", "100G") o
+    //               "100%" para el resto del disco. Otros porcentajes no
+    //               se admiten.
+    //   type:       "boot" | "root" | "additional". Exactamente una root;
+    //               en UEFI exactamente una boot (en BIOS, como mucho una).
+    //   fs_name:    "ext4" | "btrfs" | "xfs" | "f2fs" | "zfs" | "vfat"
+    //               ("fat32", "fat16" equivalen a vfat) | "swap".
+    //               Obligatorio salvo en root (hereda el global).
+    "partitions": [
+        {
+            "name": "/dev/nvme0n1p1",
+            "mountpoint": "/boot",
+            "size": "2G",
+            "fs_name": "vfat",
+            "type": "boot"
+        },
+        // Ejemplo de partición adicional; ajustar numeración y tamaño.
+        // {
+        //     "name": "/dev/nvme0n1p3",
+        //     "mountpoint": "/data",
+        //     "size": "100G",
+        //     "fs_name": "ext4",
+        //     "type": "additional"
+        // },
+        {
+            "name": "/dev/nvme0n1p2",
+            "mountpoint": "/",
+            "size": "100%",
+            "type": "root"
+        }
+    ],
+
+    // Cifra la partición swap (solo si hay una con fs_name "swap").
+    // Valores: true | false. Por defecto: false.
+    "encrypt_swap": false,
+
+    // ======================================================================
+    // Sistema
+    // ======================================================================
+
+    // Nombre de la máquina (/etc/hostname).
+    // Valores: hasta 64 caracteres; etiquetas separadas por "." de 1-63
+    // caracteres A-Z, a-z, 0-9 y "-" (sin "-" al principio ni al final).
+    // Por defecto: "cachyos". PENDIENTE.
+    "hostname": "pixmatic",
+
+    // Locale del sistema. Se activa en /etc/locale.gen, se ejecuta
+    // locale-gen y se usa para LANG y TODAS las LC_* de /etc/locale.conf
+    // (no admite combinar varios).
+    // Valores: una entrada de /etc/locale.gen sin el charset final
+    // ("es_ES.UTF-8", "en_US.UTF-8"...). Por defecto: "en_US.UTF-8".
+    "locale": "es_ES.UTF-8",
+
+    // Distribución de teclado del entorno gráfico
+    // (/etc/X11/xorg.conf.d/00-keyboard.conf). NO configura el teclado de
+    // la consola (/etc/vconsole.conf): en headless no hay clave para eso.
+    // Valores: los de "localectl list-x11-keymap-layouts" ("es", "us",
+    // "latam"...). Por defecto: "us".
+    "xkbmap": "es",
+    // Alias de xkbmap.
+    // "keymap": "es",
+
+    // Zona horaria (/etc/localtime).
+    // Valores: los de "timedatectl list-timezones" ("Europe/Madrid"...).
+    // Por defecto: "UTC".
+    "timezone": "Europe/Madrid",
+
+    // Cómo guarda la hora el reloj de la placa.
+    // Valores: "utc" | "localtime" ("localtime" solo si convive con Windows).
+    "hw_clock": "utc",
+
+    // ======================================================================
+    // Usuarios
+    // ======================================================================
+
+    // Usuario a crear.
+    // Valores: hasta 32 caracteres; empieza por a-z o "_", sigue con a-z,
+    // 0-9, "_" o "-" (y opcionalmente "$" final). Prohibidos los nombres de
+    // sistema (root, bin, daemon, mail, ftp, http, nobody...). PENDIENTE.
+    "user_name": "pixmatic",
+    // Alias de user_name.
+    // "username": "pixmatic",
+
+    // Contraseña del usuario.
+    // Valores: texto plano.
+    "user_pass": "CHANGEME",
+    // Alias de user_pass.
+    // "user_password": "CHANGEME",
+
+    // Shell del usuario. Con zsh o fish instala además su configuración de
+    // CachyOS (cachyos-zsh-config / cachyos-fish-config).
+    // Valores: "/bin/bash" | "/usr/bin/zsh" | "/usr/bin/fish".
+    // Por defecto: "/bin/bash".
+    "user_shell": "/bin/bash",
+
+    // Grupos secundarios del usuario. Si se define, SUSTITUYE a la lista por
+    // defecto (no la amplía).
+    // Valores: array de grupos existentes en el sistema instalado.
+    // Por defecto (la que aparece aquí): wheel, rfkill, sys, users, lp,
+    // video, network, storage, audio.
+    "user_groups": ["wheel", "rfkill", "sys", "users", "lp", "video", "network", "storage", "audio"],
+
+    // Contraseña de root.
+    // Valores: texto plano.
+    "root_pass": "CHANGEME",
+    // Alias de root_pass.
+    // "root_password": "CHANGEME",
+
+    // ======================================================================
+    // Paquetes y arranque
+    // ======================================================================
+
+    // Kernel(s) a instalar, separados por espacio.
+    // Valores: "linux-cachyos" | "linux-cachyos-server" | "linux-cachyos-eevdf"
+    // | "linux-cachyos-bore" | "linux-cachyos-hardened" | "linux-cachyos-lts"
+    // | "linux-cachyos-rc" | "linux-cachyos-rt-bore".
+    // Por defecto: "linux-cachyos" (con server_profile: "linux-cachyos-server").
+    "kernel": "linux-cachyos",
+
+    // Gestor de arranque.
+    // Valores: UEFI: "grub" | "systemd-boot" | "refind" | "limine".
+    //          BIOS: solo "grub".
+    // Por defecto: "grub". PENDIENTE.
+    "bootloader": "systemd-boot",
+
+    // Que GRUB detecte otros sistemas instalados.
+    // Valores: true | false. Por defecto: true.
+    // Disco dedicado: no hay otros sistemas que detectar.
+    "os_prober": false,
+
+    // Entorno de escritorio. Excluyente con server_profile.
+    // Valores: "kde" | "gnome" | "xfce" | "budgie" | "cinnamon" | "cosmic"
+    // | "i3wm" | "hyprland" | "niri" | "lxde" | "lxqt" | "mate" | "qtile"
+    // | "sway" | "ukui" | "wayfire".
+    // PENDIENTE: escritorio o server_profile.
+    "desktop": "kde",
+
+    // Inicio de sesión automático en el gestor de sesión gráfico.
+    // Valores: true | false. Por defecto: false.
+    "autologin": false,
+
+    // Grupos de paquetes opcionales.
+    // Valores: array con cualquiera de "Gaming Support",
+    // "Multimedia & Codecs", "Office Suite", "Accessibility Tools".
+    "netinstall_groups": [],
+
+    // Catálogo de paquetes propio que se superpone a net-profiles.toml.
+    // Valores: URL o "file:///ruta".
+    // "net_profiles_path": "file:///etc/pixmatic/net-profiles.toml",
+
+    // ======================================================================
+    // Sistema sin escritorio (alternativa a "desktop")
+    // ======================================================================
+
+    // Perfil de servidor. Requiere quitar "desktop" y definir
+    // ssh_authorized_keys. Todos añaden openssh (solo con clave), ufw
+    // (solo SSH abierto), haveged, timesyncd y fstrim.timer.
+    // Valores: "minimal" (solo la base) | "web" (nginx + certbot, abre 80 y
+    // 443) | "container-host" (Docker compose) | "cockpit" (Cockpit).
+    // "server_profile": "minimal",
+
+    // Obsoleto. true sin server_profile equivale a "minimal"; false junto a
+    // server_profile da error.
+    // Valores: true | false.
+    // "server_mode": true,
+
+    // Claves públicas SSH del administrador (obligatorio con server_profile).
+    // Valores: array de líneas de authorized_keys.
+    // "ssh_authorized_keys": ["ssh-ed25519 AAAA... me@pixmatic.dev"],
+
+    // Paquetes extra sobre el perfil de servidor.
+    // Valores: array de nombres de paquete.
+    // "server_extra_packages": [],
+
+    // Puertos extra a abrir en ufw.
+    // Valores: array de números 1-65535.
+    // "server_extra_tcp_ports": [],
+    // "server_extra_udp_ports": [],
+
+    // ======================================================================
+    // Post-instalación
+    // ======================================================================
+
+    // Script a ejecutar al terminar. Se ejecuta EN EL LIVE (no en el
+    // chroot) y DESPUÉS de que el instalador desmonte el destino: tendrá que
+    // montarlo o usar arch-chroot por su cuenta. Si falla, solo se registra
+    // el error. PENDIENTE (etckeeper/chezmoi).
+    // Valores: ruta a un ejecutable en el live.
+    // "post_install": "/etc/pixmatic/post-install.sh",
+
+    // ======================================================================
+    // Varios
+    // ======================================================================
+
+    // Instala drivers según el hardware detectado (chwd -a).
+    // Valores: true | false. Por defecto: true.
+    "chwd": true,
+
+    // Reutiliza la caché de paquetes del live para no volver a descargarlos.
+    // Valores: true | false. Por defecto: true.
+    "hostcache": true,
+
+    // Copia las conexiones de NetworkManager del live al sistema instalado.
+    // Valores: true | false. Por defecto: true.
+    "carry_network": true
+}

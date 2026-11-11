@@ -24,5 +24,8 @@ fusionar periódicamente con upstream (`CachyOS/CachyOS-Live-ISO`).
   upstream. Si upstream lo cambia, `build.sh` se detiene y muestra el diff.
 - `archiso/packages.x86_64` — lista de paquetes propia (solo consola).
 - `archiso/airootfs/` — ficheros que se añaden o sustituyen en el live.
+- `settings.jsonc` — configuración de `cachyos-installer`, comentada.
+  `build.sh` quita las líneas `//`, valida el JSON y lo instala en la ISO como
+  `/etc/pixmatic/settings.json` (permisos 600).
 - `remove.list` — rutas del perfil de upstream que se eliminan de la copia.
 - `profiledef.append.sh` — ajustes que se añaden al final de `profiledef.sh`.

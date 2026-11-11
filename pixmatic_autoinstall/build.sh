@@ -52,6 +52,20 @@ cp -a --remove-destination "${pix_dir}/archiso/." "${tree_dir}/archiso/"
 cat "${pix_dir}/profiledef.append.sh" >> "${tree_dir}/archiso/profiledef.sh"
 printf '\nimport "%s"\n' "${pix_dir}/prepare_profile.sh" >> "${tree_dir}/util-iso.sh"
 
+# settings.jsonc -> settings.json: solo se eliminan líneas de comentario
+# completas, para no tocar valores que contengan // (p. ej. URLs).
+msg2 "Generating installer settings.json"
+settings="${tree_dir}/archiso/airootfs/etc/pixmatic/settings.json"
+mkdir -p "$(dirname "${settings}")"
+grep -Ev '^[[:space:]]*//' "${pix_dir}/settings.jsonc" > "${settings}"
+if type -P jq > /dev/null; then
+    jq empty "${settings}" || die "Invalid JSON generated from settings.jsonc"
+elif type -P python3 > /dev/null; then
+    python3 -m json.tool "${settings}" > /dev/null || die "Invalid JSON generated from settings.jsonc"
+else
+    warning "Neither jq nor python3 found: settings.json not validated"
+fi
+
 msg "Running buildiso.sh"
 cd "${tree_dir}"
 # El trap EXIT de buildiso.sh avisa de error incluso al terminar bien, así
