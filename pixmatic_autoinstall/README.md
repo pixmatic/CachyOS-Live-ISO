@@ -3,8 +3,14 @@
 Modificaciones propias del fork `pixmatic/CachyOS-Live-ISO` (rama `pixmatic_iso`).
 
 Objetivo: ISO mínima de CachyOS, sin interfaz gráfica, que instala el sistema de
-forma desatendida con `cachyos-installer` (modo headless) y después restaura la
+forma desatendida con un **instalador propio de bajo nivel** (particionado,
+`pacstrap`, chroot…), instala Hyprland adaptando Omarchy y después restaura la
 configuración con etckeeper (`/etc`) y chezmoi (`$HOME`).
+
+El sistema instalado debe ser lo más fiel posible al que dejan los instaladores
+oficiales (Calamares y `cachyos-installer`); toda desviación es deliberada y
+está documentada. Por eso, antes de escribir el instalador, se auditan los
+oficiales (ver `docs/`).
 
 Todo el trabajo propio vive en este directorio para minimizar los conflictos al
 fusionar periódicamente con upstream (`CachyOS/CachyOS-Live-ISO`).
@@ -24,8 +30,16 @@ fusionar periódicamente con upstream (`CachyOS/CachyOS-Live-ISO`).
   upstream. Si upstream lo cambia, `build.sh` se detiene y muestra el diff.
 - `archiso/packages.x86_64` — lista de paquetes propia (solo consola).
 - `archiso/airootfs/` — ficheros que se añaden o sustituyen en el live.
-- `settings.jsonc` — configuración de `cachyos-installer`, comentada.
-  `build.sh` quita las líneas `//`, valida el JSON y lo instala en la ISO como
+- `settings.jsonc` — configuración de `cachyos-installer`, comentada (todas sus
+  claves). Ya no es el mecanismo de instalación: se conserva para probar la ISO
+  y hacer instalaciones de referencia con las que comparar. `build.sh` quita las
+  líneas `//`, valida el JSON y lo instala en la ISO como
   `/etc/pixmatic/settings.json` (permisos 600).
 - `remove.list` — rutas del perfil de upstream que se eliminan de la copia.
 - `profiledef.append.sh` — ajustes que se añaden al final de `profiledef.sh`.
+- `docs/` — auditorías de los instaladores oficiales, comparaciones,
+  decisiones y el protocolo de sincronización con upstream (índice en
+  `docs/README.md`).
+- `upstream-src/` — clones de los repos de upstream que se auditan
+  (Calamares, New-Cli-Installer, PKGBUILDS, Omarchy…). Ignorado por git
+  (`.gitignore`); no se incluye en la ISO.
