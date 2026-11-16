@@ -23,4 +23,11 @@ derivadas para el instalador propio.
     qué cambia respecto a la base de NCI `0.12.4` con `desktop: hyprland`
     (perfil `[desktop.hyprland]` con SDDM, plymouth, activación del DM).
 
+- Seguimiento de upstream:
+  - [impacto-upstream-26.11.md](impacto-upstream-26.11.md): CachyOS 26.11
+    cambia lo que se empaqueta (Calamares rama `cachyos-staging`, NCI
+    `0.13.0`); deltas respecto a lo auditado y documentos afectados.
+- [sincronizacion-upstream.md](sincronizacion-upstream.md): protocolo para
+  fusionar upstream en `pixmatic_iso`.
+
 Cada documento indica las versiones auditadas (rama/tag y commit).
