@@ -6,7 +6,8 @@
 #   2. elimina las rutas de remove.list y aplica el overlay archiso/
 #   3. añade profiledef.append.sh al final de la copia de profiledef.sh
 #   4. hace que la copia de util-iso.sh cargue prepare_profile.sh (sustituye
-#      al prepare_profile() de upstream, que es específico del escritorio)
+#      al prepare_profile() de upstream, que es específico del escritorio) y
+#      trap_exit.sh (no avisa de error al terminar bien; PR #122 de upstream)
 #   5. ejecuta ./buildiso.sh -p pixmatic en la copia y mueve el resultado a
 #      out/pixmatic
 #
@@ -36,6 +37,11 @@ if ! diff -u "${pix_dir}/prepare_profile.upstream" \
     exit 1
 fi
 
+# trap_exit.sh replica el PR #122 de upstream; si ya está incorporado, sobra.
+if grep -q '"$sig" != EXIT' "${src_dir}/util-iso.sh"; then
+    warning "util-iso.sh ya incluye el arreglo de trap_exit (PR #122): borra pixmatic_autoinstall/trap_exit.sh y su import en build.sh"
+fi
+
 msg "Preparing tree [${tree_dir}]"
 rm -rf "${tree_dir}"
 mkdir -p "${tree_dir}" "${out_dir}"
@@ -50,7 +56,7 @@ done < "${pix_dir}/remove.list"
 msg2 "Applying overlay"
 cp -a --remove-destination "${pix_dir}/archiso/." "${tree_dir}/archiso/"
 cat "${pix_dir}/profiledef.append.sh" >> "${tree_dir}/archiso/profiledef.sh"
-printf '\nimport "%s"\n' "${pix_dir}/prepare_profile.sh" >> "${tree_dir}/util-iso.sh"
+printf '\nimport "%s"\n' "${pix_dir}/prepare_profile.sh" "${pix_dir}/trap_exit.sh" >> "${tree_dir}/util-iso.sh"
 
 # settings.jsonc -> settings.json: solo se eliminan líneas de comentario
 # completas, para no tocar valores que contengan // (p. ej. URLs).
@@ -68,8 +74,8 @@ fi
 
 msg "Running buildiso.sh"
 cd "${tree_dir}"
-# El trap EXIT de buildiso.sh avisa de error incluso al terminar bien, así
-# que el resultado se comprueba por la ISO generada (el árbol es nuevo).
+# El resultado se comprueba por la ISO generada (el árbol es nuevo), no solo
+# por el código de salida.
 rc=0
 ./buildiso.sh "$@" -p "${profile}" || rc=$?
 
