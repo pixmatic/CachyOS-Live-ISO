@@ -49,8 +49,18 @@ ambas ramas se reunifiquen; hasta entonces lo que se ejecuta es `staging`.
 | GRUB | — | `GRUB_BOOTNEXT` desactivado (no nos afecta: systemd-boot) | `cala:src/modules/grubcfg/grubcfg.conf` |
 | netinstall | — | `gst-plugin-dav1d`, `gvfs-mtp`; sin tema Iridescent | `cala:src/modules/netinstall/netinstall.yaml` |
 
-`netinstall.conf` de `staging` descarga `netinstall.yaml` de la propia rama
-`cachyos-staging` (`cala:src/modules/netinstall/netinstall.conf`).
+`netinstall.conf` de `staging` descarga `netinstall.yaml` de la rama
+**`cachyos`** (no de `cachyos-staging`; `cala:src/modules/netinstall/netinstall.conf:9`).
+`cachyos` (`1f939ebed`, 2026-11-09) es antecesora de `cachyos-staging` y el
+fichero es idéntico en las dos (2026-11-16).
+
+Otros cambios de `staging` en este camino, vistos al rehacer la auditoría:
+`initcpio` con `gucc: true` usa `arch-chroot` en vez de `chroot`;
+`pacstrap` ya no copia `enable-ufw` ni `btrfs-installation-snapshot` (los
+hace el módulo `gucc`); el `plymouthd.conf` resultante queda con dos
+secciones `[Daemon]`. Y una corrección a la auditoría anterior: `dmcheck`
+**sí actúa sin escritorio** (`pacman -Qs ly` casa por descripción y deja un
+enlace roto `ly@tty2.service`).
 
 ### Cambios que afectan a `anexo-hyprland-calamares.md`
 
@@ -87,32 +97,39 @@ de usuario/hostname…) también entran en `0.13.0` y no están revisados aquí:
 | Usuario | antes de los paquetes del sistema; fallo = aviso | **después** de los paquetes (existen shell y grupos) y **fatal** | `nci:installer-lib/src/orchestrator.cpp:159`, `4fcec26` |
 | `chwd` | al final | antes de `Users` | `nci:installer-lib/src/orchestrator.cpp` |
 | `hw_clock` | sin valor por defecto | `utc` por defecto | `3c3d0b9` |
-| LUKS en la cmdline | (ver auditoría) | `rd.luks.uuid=` cuando se puede; paso `LuksKeyfile` propio | `403d49f`, `78c7fd5`, `5e3132e` |
+| LUKS en la cmdline | no hay LUKS en headless | `rd.luks.name=<uuid>=cryptroot root=/dev/mapper/cryptroot` (`403d49f` probó `rd.luks.uuid=`, `5e3132e` lo revirtió); paso `LuksKeyfile` propio (solo con `/boot` cifrado) | `nci:gucc/src/kernel_params.cpp:21-29` |
 | `post_install` | en el live **tras desmontar** el destino | en el live **con el destino montado**, `$1` = raíz del destino, antes de `BtrfsSnapshot` y `Cleanup`; si falla, aviso | `nci:installer-lib/src/orchestrator.cpp:177`, `38e5af3` |
-| Fallos | limpieza incompleta | limpia montajes y LUKS al abortar, fallar o terminar | `7f5d3af` |
+| Fallos | sin limpieza al abortar | limpia montajes y LUKS al abortar, fallar o terminar | `7f5d3af` |
+| Caché de paquetes | vacía (descargas en la del live) | **llena**: descarga en la del target y no la limpia | `nci:gucc/src/io_utils.cpp:224-242` |
+| `pacman.conf` del target | el del live, sin repos optimizados | el generado con los repos optimizados, y mirrorlists ordenados | `nci:gucc/src/install.cpp:113-130` |
 | `pacstrap` | `HookDir`/`CacheDir` del live | los del destino | `e2b095d` |
 | Formateo | — | `mkfs.*` explícitos, `sfdisk -W always` | `3a4552f`, `93c233f` |
 
 ## Qué queda afectado en nuestro trabajo
 
 1. **`auditoria-calamares-base.md`** y **`anexo-hyprland-calamares.md`**:
-   auditan `cachyos-dev`, que ya no es lo que se empaqueta. Hay que rehacer
-   los pasos afectados (tabla de arriba) contra `cachyos-staging` o, si
-   upstream reunifica las ramas pronto, contra la rama resultante.
-2. **`auditoria-new-cli-installer-base.md`** y su anexo Hyprland: auditan
-   `0.12.4`. Rehacer contra `0.13.0` el particionado (sin `EraseAndAuto`),
-   el initramfs, el orden de usuario/`chwd`, LUKS (ahora en headless) y la
-   limpieza.
-3. **`comparacion-base-resultante.md`**: varias diferencias desaparecen
-   porque ambos convergen (backend gucc común, sin `kms`, tipo GPT de la
-   raíz en NCI, initramfs una vez, usuario tras los paquetes). Revisar tras
-   actualizar las auditorías.
+   **rehechos contra `cachyos-staging`** (2026-11-16), con una sección de
+   cambios respecto a `cachyos-dev` en cada uno. Cuando upstream reunifique
+   las ramas habrá que revisarlos otra vez (es previsible que vuelvan greetd
+   + noctalia-greeter y `users` antes de los paquetes).
+2. **`auditoria-new-cli-installer-base.md`** y
+   **`anexo-hyprland-new-cli-installer.md`**: **rehechos contra `0.13.0`**
+   (2026-11-16), con LUKS2 en el camino principal y tablas de cambios
+   respecto a `0.12.4` (también contraseñas SHA-512 por stdin, `pacman.conf`
+   con repos optimizados y caché llena).
+3. **`comparacion-base-resultante.md`**: **rehecha** (2026-11-16). Sin la
+   asimetría del cifrado; se cierran caché, ESP, `kms`, initramfs y orden del
+   usuario; aparecen el tipo GPT de la raíz y `zswap.enabled=0`; R2 queda
+   reducida al `SigLevel` de `[cachyos]` y R3 baja a bajo-medio.
 4. **Decisiones** (`CLAUDE.md`): ninguna queda contradicha. Varias quedan
    respaldadas por upstream (tipo GPT de la raíz, initramfs generado una vez,
    usuario tras los paquetes, abortar si falla el usuario). A revisar:
    - plymouth: `UseSimpledrm=1` y `HOOKS` sin `kms` en lugar de «plymouth
      completo» tal como se auditó;
    - Hyprland: el que trae el Calamares empaquetado vuelve a usar SDDM.
+   - «Caché de paquetes vacía» y «`pacman.conf` sin repos optimizados» eran
+     rasgos de NCI `0.12.4`; en `0.13.0` es al revés. Las contraseñas de NCI
+     pasan de MD5 a SHA-512 (Calamares usa yescrypt).
 5. **`settings.jsonc`**: sigue siendo válido para la `0.12.4` que hay hoy en
    los repos. Con `0.13.0` hay que añadir (comentadas) `luks_passphrase` y
    `console_keymap`, corregir la descripción de `xkbmap` (ya en `0.12.4`

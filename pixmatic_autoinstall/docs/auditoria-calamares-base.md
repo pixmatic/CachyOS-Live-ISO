@@ -8,22 +8,36 @@ de consola de bajo nivel para poder replicarla.
 
 | Componente | Repo | Rama/tag | Commit | Nota |
 |---|---|---|---|---|
-| Calamares | `CachyOS/cachyos-calamares` | `cachyos-dev` | `199d71543` (2026-09-26) | El PKGBUILD compila la rama sin fijar commit (pkgver 3.4.2-13). |
-| PKGBUILDs | `CachyOS/CachyOS-PKGBUILDS` | `master` | `6c6dc36` (2026-11-15) | `cachyos-calamares/`, `systemd-boot-manager/` (pkgver 24; el repo `cachyos` sirve aún `21-1`). |
+| Calamares | `CachyOS/cachyos-calamares` | **`cachyos-staging`** | `42a91ab23` (2026-11-15) | Paquete `cachyos-calamares-staging` 3.4.2-3: el PKGBUILD compila la rama sin fijar commit, con `-DWITH_CACHYOS_INSTALLER=ON` (`pkgbuilds:cachyos-calamares-staging/PKGBUILD:59,85`). |
+| Librerías de NCI | `CachyOS/New-Cli-Installer` | tag `0.13.0` | `30401a3` (2026-11-15) | Paquete `cachyos-installer-libs` (dependencia de Calamares): el módulo `gucc` y los modos `gucc: true` llaman a `gucc/`. |
+| PKGBUILDs | `CachyOS/CachyOS-PKGBUILDS` | `master` | `a7b3058` (2026-11-15) | `cachyos-calamares-staging/`, `systemd-boot-manager/` (pkgver 24; el repo `cachyos` sirve aún `21-1`). |
 | KPMcore | `invent.kde.org/system/kpmcore` | tag `v26.08.3` | — | Versión empaquetada hoy (`extra` y `cachyos-extra-v3`). Calamares particiona con KPMcore, que lanza `sfdisk`, `mkfs.*`, `cryptsetup`. |
-| ISO | `CachyOS/CachyOS-Live-ISO` | `master` | `3215497` (2026-10-03) | `calamares-online.sh` y ficheros del live que usa Calamares. |
+| ISO | `CachyOS/CachyOS-Live-ISO` | `master` | `b0ebcae` (2026-11-15) | `calamares-online.sh` (instala `cachyos-calamares-staging`), `dmcheck` y ficheros del live que usa Calamares. |
+
+Historia del documento: la primera versión auditó la rama `cachyos-dev`
+(`199d71543`, 2026-09-26; paquete `cachyos-calamares-next`). Desde CachyOS
+26.11 la ISO usa `cachyos-calamares-staging`, que **no desciende de
+`cachyos-dev`** (parte de `f1c20a500`, 2026-06-28; ver
+[impacto-upstream-26.11.md](impacto-upstream-26.11.md)). Este documento
+describe ya `cachyos-staging`; las diferencias con lo auditado antes están en
+[Cambios respecto a `cachyos-dev`](#cambios-respecto-a-cachyos-dev). La
+versión anterior sigue en el historial de git (`635d754`).
 
 Rutas citadas:
 
-- Sin prefijo: relativas a `cachyos-calamares/`.
+- Sin prefijo: relativas a `cachyos-calamares/` en `cachyos-staging`.
+- `gucc:`: relativas a `New-Cli-Installer/gucc/` en `0.13.0`.
 - `kpmcore:`: relativas a KPMcore `v26.08.3`.
 - `iso:`: relativas a este repo (`archiso/…`).
 - `pkgbuilds:`: relativas a `CachyOS-PKGBUILDS/`.
 
 > Aviso: `netinstall.conf` descarga `netinstall.yaml` **desde GitHub
-> (`cachyos-dev` HEAD) en tiempo de ejecución**, y solo usa la copia local si
-> falla (`src/modules/netinstall/netinstall.conf`). La lista de paquetes real
-> puede cambiar sin nueva versión de Calamares. Hay que revisarla al implementar.
+> (HEAD de la rama `cachyos`, no de `cachyos-staging`) en tiempo de
+> ejecución**, y solo usa la copia local si falla
+> (`src/modules/netinstall/netinstall.conf:9`). El 2026-11-16 el fichero es
+> idéntico en las dos ramas (`cachyos` = `1f939ebed`, antecesor de
+> `cachyos-staging`), pero la lista de paquetes real puede cambiar sin nueva
+> versión de Calamares. Hay que revisarla al implementar.
 
 ## Alcance: opciones fijas
 
@@ -70,6 +84,10 @@ USER=…  HOSTNAME=…  PASS=…   # salen de la configuración privada
   `TMP*`. **No es `arch-chroot`**: los sistemas de ficheros de API los monta
   antes el módulo `mount` y siguen montados hasta `umount`. La única excepción es
   `chwd`, que sí usa `arch-chroot`.
+- Los pasos que pasan por gucc (módulo `gucc`, e `initcpio` con `gucc: true`)
+  usan en cambio **`arch-chroot $ROOT <cmd>`**
+  (`gucc:src/io_utils.cpp:216-222`), que monta sus propios sistemas de
+  ficheros de API encima de los existentes.
 - Los `shellprocess` del target ejecutan `chroot $ROOT /bin/sh -c "<línea>"`
   (`src/libcalamares/utils/CommandList.cpp:262`). Una línea que empieza por `-`
   ignora errores. `${ROOT}` se expande al punto de montaje y `${USER}` al login
@@ -77,47 +95,49 @@ USER=…  HOSTNAME=…  PASS=…   # salen de la configuración privada
 
 ## Resumen de la secuencia `exec`
 
-Fuente: `settings_online.conf:70-104` (el que copia `calamares-online.sh` como
+Fuente: `settings_online.conf:90-123` (el que copia `calamares-online.sh` como
 `/etc/calamares/settings.conf`). En la columna "¿Actúa?": **sí** = hace algo con
-nuestras opciones; *no-op* = se ejecuta pero no hace nada.
+nuestras opciones; *no-op* = se ejecuta pero no hace nada. Los números de paso
+se conservan de la primera versión del documento (que seguía el orden de
+`cachyos-dev`): por eso `users` es el Paso 9 aunque ahora se ejecuta tras el
+21, y no hay Paso 31.
 
-| # | Módulo | ¿Actúa? | Efecto |
-|---|---|---|---|
-| 0 | (`calamares-online.sh`) | sí | Llavero de pacman en el live, NTP |
-| 1 | `partition` | sí | GPT, ESP FAT32 de 2 GiB, LUKS2 + btrfs |
-| 2 | `zfs` | no-op | — |
-| 3 | `mount` | sí | Subvolúmenes btrfs, montajes del target y de API |
-| 4 | `shellprocess@modify_mk_hook` | sí | Desactiva `mkinitcpio` durante la instalación de paquetes |
-| 5 | `shellprocess@initialize_pacman` | sí | Ordena mirrors y refresca llaveros en el live; los copia al target |
-| 6 | `shellprocess@before-online` | sí | `pacman.conf` del target + repos optimizados según la CPU |
-| 7 | `pacstrap` | sí | `pacman --sysroot` con la lista base; copia ficheros del live |
-| 8 | `machineid` | sí | machine-id, random-seed, enlace dbus |
-| 9 | `users` | sí | sudoers, grupos, usuario, contraseñas, hostname |
-| 10 | `locale` | sí | `/etc/localtime`, `/etc/timezone` |
-| 11 | `keyboard` | sí | `vconsole.conf`, `00-keyboard.conf`, `/etc/default/keyboard` |
-| 12 | `localecfg` | sí | `locale.gen`, `locale-gen`, `locale.conf`, `/etc/default/locale` |
-| 13 | `chwd` | sí | Drivers según el hardware |
-| 14 | `packages@online` | sí | `pacman -Sy`, `-Su` y paquetes de netinstall |
-| 15 | `luksbootkeyfile` | no-op | `/boot` sin cifrar → no hay keyfile |
-| 16 | `luksopenswaphookcfg` | no-op | Sin swap |
-| 17 | `fstab` | sí | `fstab` y `crypttab` |
-| 18 | `plymouthcfg` | sí | Tema de plymouth |
-| 19 | `zfshostid` | no-op | — |
-| 20 | `initcpiocfg` | sí | `mkinitcpio.conf` (HOOKS con `sd-encrypt`) |
-| 21 | `initcpio` | sí | `mkinitcpio -P` |
-| 22 | `networkcfg` | sí | Conexiones de NetworkManager y `resolv.conf` del live |
-| 23 | `displaymanager` | no-op | Sin DM instalado |
-| 24 | `hwclock` | sí | `hwclock --systohc --utc` |
-| 25 | `grubcfg` | no-op | No es GRUB |
-| 26 | `bootloader` | sí | `bootctl install`, `kernel-install`, `loader.conf` |
-| 27 | `shellprocess@reset_mk_hook` | sí | Restaura los hooks de `mkinitcpio` |
-| 28 | `services-systemd` | sí | `systemctl enable/disable` |
-| 29 | `shellprocess` | sí | Limpieza del live, skel, shell fish, `sdboot-manage gen` |
-| 30 | `shellprocess@enable_ufw` | sí | ufw activado |
-| 31 | `shellprocess@greetd` | no-op | — |
-| 32 | `shellprocess@btrfs_snapshot` | no-op | Sin snapper (systemd-boot no lo instala) |
-| 33 | `shellprocess@cleanup_calamares` | sí | Borra `/etc/calamares` del target |
-| 34 | `umount` | sí | `umount -lv` de todo |
+| Orden | Paso | Módulo | ¿Actúa? | Efecto |
+|---|---|---|---|---|
+| — | 0 | (`calamares-online.sh`) | sí | Llavero de pacman en el live, NTP |
+| 1 | 1 | `partition` | sí | GPT, ESP FAT32 de 2 GiB, LUKS2 + btrfs |
+| 2 | 2 | `zfs` | no-op | — |
+| 3 | 3 | `mount` | sí | Subvolúmenes btrfs, montajes del target y de API |
+| 4 | 4 | `gucc@modify_mk_hook` | sí | Desactiva `mkinitcpio` durante la instalación de paquetes |
+| 5 | 5 | `shellprocess@initialize_pacman` | sí | Ordena mirrors y refresca llaveros en el live; los copia al target |
+| 6 | 6 | `shellprocess@before-online` | sí | `pacman.conf` del target + repos optimizados según la CPU |
+| 7 | 7 | `pacstrap` | sí | `pacman --sysroot` con la lista base (con kernels); copia ficheros del live |
+| 8 | 8 | `machineid` (`gucc: true`) | sí | machine-id, random-seed, enlace dbus |
+| 9 | 10 | `locale` | sí | `/etc/localtime`, `/etc/timezone` |
+| 10 | 11 | `keyboard` | sí | `vconsole.conf`, `00-keyboard.conf`, `/etc/default/keyboard` |
+| 11 | 12 | `localecfg` | sí | `locale.gen`, `locale-gen`, `locale.conf`, `/etc/default/locale` |
+| 12 | 13 | `chwd` | sí | Drivers según el hardware |
+| 13 | 14 | `packages@online` | sí | `pacman -Sy`, `-Su` y paquetes de netinstall (con **plymouth**) |
+| 14 | 15 | `luksbootkeyfile` | no-op | `/boot` sin cifrar → no hay keyfile |
+| 15 | 16 | `luksopenswaphookcfg` | no-op | Sin swap |
+| 16 | 17 | `fstab` | sí | `fstab` y `crypttab` |
+| 17 | 18 | `plymouthcfg` | sí | Tema de plymouth y `UseSimpledrm=1` |
+| 18 | 19 | `gucc@zfshostid` | no-op | — |
+| 19 | 20 | `initcpiocfg` | sí | `mkinitcpio.conf` (HOOKS con `sd-encrypt`, sin `kms`) |
+| 20 | 21 | `initcpio` (`gucc: true`) | sí | `arch-chroot … mkinitcpio -P` |
+| 21 | 9 | `users` | sí | sudoers, grupos, usuario, contraseñas, hostname |
+| 22 | 22 | `networkcfg` | sí | Conexiones de NetworkManager y `resolv.conf` del live |
+| 23 | 23 | `displaymanager` | no-op | Sin DM instalado |
+| 24 | 24 | `gucc@hwclock` | sí | `hwclock --systohc --utc` |
+| 25 | 25 | `grubcfg` | no-op | No es GRUB |
+| 26 | 26 | `bootloader` | sí | `bootctl install`, `kernel-install`, `loader.conf` |
+| 27 | 27 | `gucc@reset_mk_hook` | sí | Restaura los hooks de `mkinitcpio` |
+| 28 | 28 | `services-systemd` | sí | `systemctl enable/disable` |
+| 29 | 29 | `shellprocess` | sí | Limpieza del live, `dmcheck`, skel, shell fish, `sdboot-manage gen` |
+| 30 | 30 | `gucc@enable_ufw` | sí | ufw activado |
+| 31 | 32 | `gucc@btrfs_snapshot` | no-op | Sin `cachyos-snapper-support` (systemd-boot no lo instala) |
+| 32 | 33 | `shellprocess@cleanup_calamares` | sí | Borra `/etc/calamares` del target |
+| 33 | 34 | `umount` | sí | `umount -lv` de todo |
 
 ---
 
@@ -131,7 +151,7 @@ pacman -Sy --noconfirm archlinux-keyring cachyos-keyring
 pacman-key --init
 pacman-key --populate archlinux cachyos
 timedatectl set-ntp true
-pacman -Sy --noconfirm cachyos-calamares-next      # (solo para Calamares)
+pacman -Sy --noconfirm cachyos-calamares-staging   # (solo para Calamares; :35)
 ```
 
 Durante la fase interactiva, al elegir la zona, Calamares también ejecuta en el
@@ -256,23 +276,27 @@ mount -t efivarfs efivarfs "$ROOT/sys/firmware/efi/efivars"
 - `@` se registra como `btrfsRootSubvolume` (`main.py:302-304`) para la cmdline.
 - `/tmp` no es subvolumen; puede acabar como tmpfs en `fstab` (Paso 17).
 
-## Paso 4: `shellprocess@modify_mk_hook`
+## Paso 4: `gucc@modify_mk_hook`
 
-`src/modules/shellprocess/shellprocess_modify_mk_hook.conf` (en el live):
+`src/modules/gucc/gucc_modify_mk_hook.conf` (`action: install-mk-hook`) →
+`GuccJob.cpp:53-54` → `gucc::initcpio::install_deferral_hook`
+(`gucc:src/initcpio.cpp:306-316`), escrito desde el live directamente en el
+target (es la misma función que usa NCI en su paso `Base`):
 
 ```bash
-mkdir -p /etc/pacman.d/hooks/
-cp /etc/calamares/scripts/90-mkinitcpio-install.hook /etc/pacman.d/hooks/        # en el live
-mkdir -p "$ROOT/usr/share/libalpm/scripts/"
-cp /etc/calamares/scripts/mkinitcpio-install-calamares "$ROOT/usr/share/libalpm/scripts/"
-chmod +x "$ROOT/usr/share/libalpm/scripts/mkinitcpio-install-calamares"
-mkdir -p "$ROOT/etc/pacman.d/hooks/"
-cp /etc/calamares/scripts/90-mkinitcpio-install.hook "$ROOT/etc/pacman.d/hooks/"
+install -Dm755 /dev/stdin "$ROOT/usr/share/libalpm/scripts/mkinitcpio-install-calamares"  # kDeferralScript
+install -Dm644 /dev/stdin "$ROOT/etc/pacman.d/hooks/90-mkinitcpio-install.hook"          # kDeferralHook
 ```
 
-El hook (`src/scripts/90-mkinitcpio-install.hook`) tiene el mismo nombre que el
-de `mkinitcpio`, así que lo **sustituye**. Llama a `mkinitcpio-install-calamares`
-(`src/scripts/mkinitcpio-install-calamares:1-40`), que para cada kernel instalado:
+Diferencia con el `shellprocess@modify_mk_hook` de `cachyos-dev`: ya no copia
+el hook también al `/etc/pacman.d/hooks/` del live (no hacía falta: con
+`--sysroot` pacman usa los hooks del target). El contenido de ambos ficheros
+es una copia literal de `src/scripts/90-mkinitcpio-install.hook` y
+`src/scripts/mkinitcpio-install-calamares` (`gucc:src/initcpio.cpp:28-86`).
+
+El hook tiene el mismo nombre que el de `mkinitcpio`, así que lo
+**sustituye**. Llama a `mkinitcpio-install-calamares`, que para cada kernel
+instalado:
 
 - crea `/etc/mkinitcpio.d/<pkgbase>.preset` desde `/usr/share/mkinitcpio/hook.preset`
   si no existe (o recupera el `.pacsave`);
@@ -326,26 +350,27 @@ cp /etc/pacman-more.conf "$ROOT/etc/pacman.conf"
 
 ## Paso 7: `pacstrap`
 
-`src/modules/pacstrap/main.py:69-199`. Lista base: `pacstrap.conf:13-57`. Se
-añade según las opciones (`main.py:94-155`):
+`src/modules/pacstrap/main.py:69-189`. Lista base: `pacstrap.conf:13-58`,
+que ahora incluye los kernels (`:35-38`) y **ya no incluye plymouth** (pasa a
+un grupo de netinstall, [Paso 14](#paso-14-packagesonline-netinstall)). Se
+añade según las opciones (`main.py:106-145`):
 
-- kernels: `linux-cachyos linux-cachyos-headers linux-cachyos-lts linux-cachyos-lts-headers`;
-- systemd-boot: `systemd-boot-manager`;
-- microcódigo: `intel-ucode` si `vendor_id` es `GenuineIntel`; si no, `amd-ucode`;
+- systemd-boot: `systemd-boot-manager` (`:115-116`);
+- microcódigo: `intel-ucode` si `vendor_id` es `GenuineIntel`; si no, `amd-ucode` (`:124-126`);
 - btrfs + systemd-boot: **nada** (snapper, `btrfs-assistant` y
-  `*-snapper-*` solo con limine, grub o refind).
+  `*-snapper-*` solo con limine, grub o refind, `:133-140`).
 
 ```bash
-# antes: borra /boot/{intel,amd}-ucode.img si existen (main.py:157-166)
+# antes: borra /boot/{intel,amd}-ucode.img si existen (main.py:147-156)
 /etc/calamares/scripts/pacstrap_calamares -c "$ROOT" \
   base base-devel btrfs-progs cachyos-hooks cachyos-keyring cachyos-mirrorlist \
   cachyos-v4-mirrorlist cachyos-v3-mirrorlist cachyos-rate-mirrors cachyos-settings \
   cryptsetup device-mapper diffutils dosfstools e2fsprogs efibootmgr exfatprogs \
-  f2fs-tools inetutils jfsutils less linux-firmware logrotate lsb-release lvm2 \
-  man-db man-pages mdadm chwd mkinitcpio netctl os-prober perl python s-nail sudo \
-  sysfsutils texinfo usbutils which xfsprogs plymouth cachyos-plymouth-bootanimation \
-  cachyos-plymouth-theme \
+  f2fs-tools inetutils jfsutils less \
   linux-cachyos linux-cachyos-headers linux-cachyos-lts linux-cachyos-lts-headers \
+  linux-firmware logrotate lsb-release lvm2 \
+  man-db man-pages mdadm chwd mkinitcpio netctl os-prober perl python s-nail sudo \
+  sysfsutils texinfo usbutils which xfsprogs \
   systemd-boot-manager {intel|amd}-ucode
 ```
 
@@ -368,15 +393,18 @@ pacman --sysroot "$ROOT" -Sy <paquetes> --noconfirm --needed
   `pacman-mirrorlist` y `cachyos-*mirrorlist` dejan sus versiones como
   `.pacnew`. Lo mismo pasa con `/etc/resolv.conf`.
 
-Después copia ficheros del live al target (`main.py:179-193`,
-`pacstrap.conf:65-72`) con `shutil.copy2`:
+Después copia ficheros del live al target (`main.py:169-183`,
+`pacstrap.conf:66-71`) con `shutil.copy2`:
 
 ```bash
 cp -a /etc/mkinitcpio.conf                          "$ROOT/etc/mkinitcpio.conf"   # del paquete mkinitcpio del live
-cp -a /etc/calamares/scripts/{dmcheck,enable-ufw,bootloader-post-setup,shell-setup,btrfs-installation-snapshot} \
-      "$ROOT/etc/calamares/scripts/"
+cp -a /usr/local/bin/dmcheck                        "$ROOT/usr/local/bin/"        # el de la ISO, no el del paquete
 cp -a /usr/local/bin/remove-nvidia                  "$ROOT/usr/local/bin/"        # se queda en el target (ver hallazgos)
+cp -a /etc/calamares/scripts/{bootloader-post-setup,shell-setup} "$ROOT/etc/calamares/scripts/"
 ```
+
+`enable-ufw` y `btrfs-installation-snapshot` ya no se copian: esos pasos los
+hace ahora el módulo `gucc` desde el live.
 
 En la ISO oficial no hay un `/etc/mkinitcpio.conf` propio en `airootfs` (solo
 `mkinitcpio.conf.d/archiso.conf`, que no se copia). El fichero copiado es el
@@ -391,17 +419,26 @@ Hooks de pacman que se disparan aquí y son relevantes:
 
 ## Paso 8: `machineid`
 
-`machineid.conf:13-30`, `Workers.cpp:143-190`:
+`machineid.conf` (`systemd: true`, `systemd-style: uuid`, `dbus-symlink:
+true`, `gucc: true`). Las semillas de entropía las sigue escribiendo el módulo
+(`MachineIdJob.cpp:89-117`, `Workers.cpp:143-190`); el machine-id y el enlace
+de dbus pasan a `gucc::machine_id::reset` (`MachineIdJob.cpp:119-128`,
+`gucc:src/machine_id.cpp:56-70`):
 
 ```bash
-rm -f "$ROOT"/etc/machine-id "$ROOT"/var/lib/dbus/machine-id \
-      "$ROOT"/var/lib/urandom/random-seed "$ROOT"/var/lib/systemd/random-seed
+rm -f "$ROOT"/var/lib/urandom/random-seed "$ROOT"/var/lib/systemd/random-seed
 mkdir -p "$ROOT"/var/lib/urandom "$ROOT"/var/lib/systemd
 head -c 512 /dev/urandom > "$ROOT/var/lib/urandom/random-seed"    # max(poolsize, 512) bytes
 head -c 512 /dev/urandom > "$ROOT/var/lib/systemd/random-seed"
-systemd-machine-id-setup --root="$ROOT"                            # en el live
-chroot "$ROOT" ln -sf /etc/machine-id /var/lib/dbus/machine-id
+# gucc (en el live):
+rm -f "$ROOT"/etc/machine-id "$ROOT"/var/lib/dbus/machine-id
+systemd-machine-id-setup --root="$ROOT"
+mkdir -p "$ROOT"/var/lib/dbus
+ln -s /etc/machine-id "$ROOT"/var/lib/dbus/machine-id               # sin chroot
 ```
+
+Resultado idéntico al de `cachyos-dev`; solo cambia que el enlace se crea
+desde el live en vez de con `chroot … ln -sf`.
 
 Los ficheros de entropía se crean con la umask de Calamares (no se fuerza
 `0600`). En el sistema de referencia, `systemd-random-seed` ya los ha
@@ -409,7 +446,15 @@ reescrito con `0600`.
 
 ## Paso 9: `users`
 
-Jobs en orden (`src/modules/users/Config.cpp:1084-1126`), todos en el target:
+**Se ejecuta tras `initcpio` (Paso 21) y antes de `networkcfg`**
+(`settings_online.conf:111`), es decir, después de todos los paquetes
+(`pacstrap`, `chwd` y netinstall). Consecuencias: los grupos y la shell ya
+existen, y `useradd -m` copia un `/etc/skel` completo (la recopia del skel
+del Paso 29 queda redundante en la instalación base). Es el orden de la
+Calamares anterior a julio; `cachyos-dev` lo había adelantado tras
+`machineid`.
+
+Jobs en orden (`src/modules/users/Config.cpp:1071-1113`), todos en el target:
 
 ```bash
 # SetupSudoJob (MiscJobs.cpp:51-72; sudoersConfigureWithGroup=false → "(ALL)")
@@ -543,7 +588,8 @@ líneas añadidas depende del orden en que aparecen en `locale.gen`.
 
 ## Paso 13: `chwd`
 
-`src/modules/chwd/main.py:80-89`:
+`src/modules/chwd/main.py:77-85` (en `staging` ya no existe la variante
+`--ai_sdk` del bootloader `refind-ai`):
 
 ```bash
 arch-chroot "$ROOT" chwd --autoconfigure
@@ -572,16 +618,21 @@ chroot "$ROOT" pacman -S … firefox-i18n-<locale>
 
 Con *No Desktop* no se añade ningún grupo de escritorio, pero entran **todos
 los grupos preseleccionados** de `src/modules/netinstall/netinstall.yaml`
-(copia de `199d71543`):
+(copia de `cachyos-staging`, igual a la de la rama `cachyos` que se descarga):
 
 | Grupo | Crítico | Paquetes |
 |---|---|---|
-| CachyOS required (oculto) | sí | `cachyos-hooks cachyos-keyring cachyos-mirrorlist cachyos-v3-mirrorlist cachyos-v4-mirrorlist cachyos-rate-mirrors chwd` |
-| CachyOS kernels (oculto, desktop) | sí | `linux-cachyos linux-cachyos-headers linux-cachyos-lts linux-cachyos-lts-headers` |
-| CachyOS Packages (`:34`) | sí | `cachyos-hello cachyos-kernel-manager cachyos-packageinstaller cachyos-settings cachyos-micro-settings cachyos-wallpapers` |
-| Base-devel + Common packages (`:53`) | sí | subgrupos Network, firewall (`ufw ufw-extras`), bluetooth, packages management, desktop integration, filesystem, fonts, audio, hardware, power, applications (`alacritty btop … openssh`) |
-| CachyOS shell configuration (`:46`) | no | `cachyos-fish-config cachyos-zsh-config` |
-| Firefox and language package (`:833`) | no | `firefox firefox-i18n-$LOCALE` |
+| CachyOS required (oculto, `:1`) | sí | `cachyos-hooks cachyos-keyring cachyos-mirrorlist cachyos-v3-mirrorlist cachyos-v4-mirrorlist cachyos-rate-mirrors linux-cachyos linux-cachyos-headers linux-cachyos-lts linux-cachyos-lts-headers chwd` |
+| CachyOS Packages (`:18`) | sí | `cachyos-hello cachyos-kernel-manager cachyos-packageinstaller cachyos-settings cachyos-micro-settings cachyos-wallpapers` |
+| Base-devel + Common packages (`:37`) | sí | subgrupos Network, firewall (`ufw ufw-extras`), bluetooth, packages management, desktop integration (ahora con `gst-plugin-dav1d`), filesystem, fonts, audio, hardware, power, applications (`alacritty btop … openssh`) |
+| **Plymouth** (`:833`, visible) | sí | `plymouth cachyos-plymouth-bootanimation cachyos-plymouth-theme` |
+| CachyOS shell configuration (`:30`) | no | `cachyos-fish-config cachyos-zsh-config` |
+| Firefox and language package (`:785`) | no | `firefox firefox-i18n-$LOCALE` |
+
+En `cachyos-dev` los kernels eran un grupo oculto aparte y plymouth iba en
+`pacstrap`; ahora plymouth **entra aquí**, en la transacción crítica de
+netinstall, y el usuario puede desmarcarlo. Como el hook de `mkinitcpio`
+sigue sustituido (Paso 4), instalarlo aquí no genera initramfs.
 
 `$LOCALE` se sustituye por el BCP47 del idioma elegido (GlobalStorage
 `locale`, `packages/main.py:656-697`). Hay que comprobar en VM qué valor da con
@@ -647,16 +698,43 @@ y ve el dispositivo ya abierto.
 
 ## Paso 18: `plymouthcfg`
 
-`plymouthcfg.conf`, `main.py:70-78`:
+`plymouthcfg.conf:27-35` (`plymouth_theme: cachyos-bootanimation`,
+`plymouth_theme_amdgpu: cachyos`, `plymouth_simpledrm: true`),
+`main.py:72-107`. Solo actúa si plymouth está en el target (`main.py:38`):
 
 ```bash
+# setTheme: solo si existe $ROOT/usr/share/plymouth/themes/<tema> (main.py:80-83)
 chroot "$ROOT" plymouth-set-default-theme cachyos-bootanimation   # o "cachyos" si `chwd --check amd` (en el live) detecta GPU AMD
+
+# setUseSimpledrm (main.py:85-97): en $ROOT/etc/plymouth/plymouthd.conf, a cada
+# línea que empieza por "[Daemon]" o "#[Daemon]" le quita el "#" y le añade
+# debajo "UseSimpledrm=1"
 ```
+
+Contenido resultante deducido de `plymouthd.conf` (el del paquete termina en
+`#[Daemon]` / `#Theme=fade-in`, y `plymouth-set-default-theme` antepone una
+sección `[Daemon]` con `Theme=`):
+
+```ini
+[Daemon]
+UseSimpledrm=1
+Theme=cachyos-bootanimation
+# Administrator customizations go in this file
+[Daemon]
+UseSimpledrm=1
+#Theme=fade-in
+```
+
+Dos secciones `[Daemon]` con la misma clave: inofensivo, pero el fichero (del
+paquete `plymouth`, en `backup`) queda modificado y saldrá `.pacnew` si el
+paquete lo cambia. `UseSimpledrm=1` hace que plymouth use el framebuffer
+`simpledrm` del firmware en vez de esperar al driver DRM de la GPU; encaja con
+quitar `kms` del initramfs (Paso 20).
 
 ## Paso 20: `initcpiocfg`
 
 `src/modules/initcpiocfg/main.py:84-239`, `initcpiocfg.conf` (`useSystemdHook:
-true`; los `bogus` de prepend/append se anulan con remove). Lee el
+true`; `hooks: prepend: [], append: [], remove: [ kms ]`, `:27-30`). Lee el
 `/etc/mkinitcpio.conf` **del live** y escribe el del target cambiando solo las
 líneas `HOOKS`, `MODULES`, `BINARIES` y `FILES`. Además quita la sangría de
 todas las líneas (`.strip()`).
@@ -665,22 +743,30 @@ todas las líneas (`.strip()`).
 MODULES=()
 BINARIES=()
 FILES=()
-HOOKS=(base systemd autodetect microcode kms modconf block keyboard sd-vconsole plymouth sd-encrypt filesystems)
+HOOKS=(base systemd autodetect microcode modconf block keyboard sd-vconsole plymouth sd-encrypt filesystems)
 ```
 
+- **Sin `kms`**: el módulo lo pone y la configuración lo quita (en
+  `cachyos-dev` estaba). Los drivers DRM de la GPU se cargan ya en el sistema
+  real; plymouth usa `simpledrm` (Paso 18).
 - `systemd` porque existe `systemd-cat` en el target (`main.py:121-126`).
-- `plymouth` porque existe `plymouth` (`:153-154`).
+- `plymouth` porque existe `plymouth` (`:153-154`); si se desmarca el grupo
+  Plymouth de netinstall, no aparece.
 - `sd-encrypt` porque `/` lleva `luksMapperName` (`:173-186`).
 - Sin `fsck` porque hay btrfs (`:204-205`). Sin `resume` porque no hay swap.
 
 ## Paso 21: `initcpio`
 
-`InitcpioJob.cpp:41-87`, `initcpio.conf` (`kernel: all`):
+`InitcpioJob.cpp:64-93`, `initcpio.conf` (`kernel: all`, `gucc: true`):
 
 ```bash
-chmod 600 "$ROOT"/boot/initramfs*            # fixPermissions (si ya hubiera alguno)
-(umask 077; chroot "$ROOT" mkinitcpio -P)    # UMask::Safe → initramfs 0600
+chmod 600 "$ROOT"/boot/initramfs*                  # fixPermissions (si ya hubiera alguno)
+(umask 077; arch-chroot "$ROOT" mkinitcpio -P)     # UMask::Safe (:67) + gucc::utils::arch_chroot_or_error (:86)
 ```
+
+Con `gucc: true` se usa `arch-chroot` en vez del `chroot` de Calamares; la
+`umask` 077 del proceso la heredan los hijos, así que los initramfs deberían
+seguir saliendo con `0600` (a confirmar en VM).
 
 Los presets los creó `mkinitcpio-install-calamares` (Paso 4) a partir de
 `hook.preset`, y los kernels ya están en `/boot/vmlinuz-<pkgbase>`. Salen
@@ -700,20 +786,24 @@ rm -f "$ROOT/etc/resolv.conf"; cp -P /etc/resolv.conf "$ROOT/etc/resolv.conf"   
 
 Netplan no aplica.
 
-## Paso 24: `hwclock`
+## Paso 24: `gucc@hwclock`
 
-`src/modules/hwclock/main.py:33-54`:
+`gucc_hwclock.conf` (`action: hwclock`) → `GuccJob.cpp:65-71` →
+`gucc::hwclock::set_hwclock_utc` (`gucc:src/hwclock.cpp:13-29`):
 
 ```bash
-chroot "$ROOT" hwclock --systohc --utc || chroot "$ROOT" hwclock --systohc --utc --directisa
+arch-chroot "$ROOT" hwclock --systohc --utc || arch-chroot "$ROOT" hwclock --systohc --utc --directisa
 ```
+
+Si falla, solo se registra un aviso (`GuccJob.cpp:66-70`), igual que antes.
 
 Escribe la hora del sistema (sincronizada por NTP en el Paso 0) en el RTC y
 crea `/etc/adjtime` con `UTC`.
 
 ## Paso 26: `bootloader` (systemd-boot)
 
-`src/modules/bootloader/main.py:547-571` (`install_systemd_boot`),
+`src/modules/bootloader/main.py:546-570` (`install_systemd_boot`, sin
+cambios respecto a `cachyos-dev`),
 `bootloader.conf` (`kernelParams: [quiet, nowatchdog]`,
 `loaderEntries: [timeout 5, console-mode keep]`):
 
@@ -730,7 +820,7 @@ chroot "$ROOT" kernel-install add <kver> /usr/lib/modules/<kver>/vmlinuz
 printf 'default @saved\ntimeout 5\nconsole-mode keep\n' > "$ROOT/boot/loader/loader.conf"
 ```
 
-`CMDLINE` se forma en `get_kernel_params` (`main.py:141-219`), en este orden:
+`CMDLINE` se forma en `get_kernel_params` (`main.py:140-218`), en este orden:
 
 ```
 quiet nowatchdog splash rw rootflags=subvol=/@ rd.luks.uuid=<UUID-LUKS> root=/dev/mapper/luks-<UUID-LUKS>
@@ -738,7 +828,7 @@ quiet nowatchdog splash rw rootflags=subvol=/@ rd.luks.uuid=<UUID-LUKS> root=/de
 
 - `splash` porque está plymouth.
 - `rd.luks.uuid` (y no `cryptdevice=`) porque `HOOKS` contiene `systemd`
-  (`:149`, `:173-177`).
+  (`:148`, `:172-176`).
 
 Efectos de `kernel-install add` en el target: con `$BOOT/<machine-id>`
 presente, el layout es BLS. Se ejecutan los plugins de
@@ -748,15 +838,19 @@ Este último copia `linux` e `initrd` a `/boot/<machine-id>/<kver>/` y escribe
 `/boot/loader/entries/<machine-id>-<kver>.conf`. Esas entradas se borran en el
 Paso 29.
 
-## Paso 27: `shellprocess@reset_mk_hook`
+## Paso 27: `gucc@reset_mk_hook`
+
+`gucc_reset_mk_hook.conf` (`action: remove-mk-hook`) →
+`gucc::initcpio::remove_deferral_hook` (`gucc:src/initcpio.cpp:318-327`),
+desde el live:
 
 ```bash
-chroot "$ROOT" rm /etc/pacman.d/hooks/90-mkinitcpio-install.hook
-chroot "$ROOT" rm /usr/share/libalpm/scripts/mkinitcpio-install-calamares
+rm -f "$ROOT/etc/pacman.d/hooks/90-mkinitcpio-install.hook" \
+      "$ROOT/usr/share/libalpm/scripts/mkinitcpio-install-calamares"
 ```
 
-A partir de aquí vuelve a funcionar el hook normal de `mkinitcpio`. La copia
-en el live (Paso 4) no se deshace, pero da igual.
+A partir de aquí vuelve a funcionar el hook normal de `mkinitcpio`. Ya no
+queda copia en el live.
 
 ## Paso 28: `services-systemd`
 
@@ -777,6 +871,7 @@ en el live (Paso 4) no se deshace, pero da igual.
 | `multi-user.target` | disable | sin `[Install]`: no hace nada |
 | `bluetooth` | enable | sí |
 | `arch-update.timer` | `--global` enable | no (no está instalado) |
+| `arch-update-tray.service` (nuevo en `staging`, `:77-80`) | `--global` enable | no (no está instalado) |
 
 Otras unidades activas en un sistema recién instalado (p. ej. `systemd-resolved`,
 `ananicy-cpp`, `systemd-oomd`, `cachyos-rate-mirrors.timer`) **no las activa
@@ -785,21 +880,39 @@ replican solas al instalar los mismos paquetes.
 
 ## Paso 29: `shellprocess` (principal)
 
-`shellprocess.conf`, en el target:
+`shellprocess.conf:94-106`, en el target:
 
 ```bash
 rm /etc/systemd/system/etc-pacman.d-gnupg.mount          # (-) no existe en el target
 rm /etc/systemd/system/display-manager.service           # (-)
-/etc/calamares/scripts/dmcheck                            # sin DM → no hace nada
-rm /etc/calamares/scripts/dmcheck; rm /usr/local/bin/dmcheck   # (-)
+/usr/local/bin/dmcheck                                    # el de la ISO (Paso 7); ver abajo
+rm /usr/local/bin/dmcheck                                 # (-)
 rm -rf /home/liveuser                                     # (-)
-runuser $USER -c "cp -rf /etc/skel/. /home/$USER/."       # (-) recopia skel: trae lo que añadieron paquetes posteriores al useradd
+runuser $USER -c "cp -rf /etc/skel/. /home/$USER/."       # (-) recopia skel; redundante: users ya va tras los paquetes
 runuser $USER -c "rm -rf /home/$USER/{.xsession,.xprofile,.xinitrc}"   # (-)
 /etc/calamares/scripts/shell-setup $USER                  # chsh -s /bin/fish $USER (fish existe → fish)
-rm /etc/calamares/scripts/shell-setup
+rm /etc/calamares/scripts/shell-setup                     # (-)
 /etc/calamares/scripts/bootloader-post-setup
-rm /etc/calamares/scripts/bootloader-post-setup
+rm /etc/calamares/scripts/bootloader-post-setup           # (-)
 ```
+
+`dmcheck` (`iso:archiso/airootfs/usr/local/bin/dmcheck:18-54`) recorre DMs con
+`pacman -Qs <nombre>`, que busca una **expresión regular en nombres y
+descripciones**. `pacman -Qs ly` (`:18-22`) casa con casi cualquier sistema
+(«ly» aparece en muchas descripciones), así que también **sin escritorio**
+hace:
+
+```bash
+rm -f /etc/systemd/system/getty.target.wants/getty@tty2.service
+ln -sf /usr/lib/systemd/system/ly@.service /etc/systemd/system/multi-user.target.wants/ly@tty2.service   # enlace roto: ly no está instalado
+```
+
+(La primera versión de este documento decía «sin DM → no hace nada»; el
+error se detectó en el anexo Hyprland y en la comparación.) Los demás
+patrones (`sddm`, `gdm`, `lightdm`, `noctalia-greeter`…) no deberían casar en
+la instalación base. La versión de la ISO añade `plasma-login-manager` y
+`noctalia-greeter` → `greetd.service` respecto a la del paquete de
+`cachyos-dev`.
 
 `bootloader-post-setup` (`src/scripts/bootloader-post-setup:29-32`), rama
 systemd-boot:
@@ -826,24 +939,36 @@ no lleva línea `initrd` propia: va dentro del initramfs (hook `microcode`).
 `LINUX_OPTIONS="nowatchdog quiet splash"` se **añade** a `/etc/kernel/cmdline`
 (`sdboot-manage:298-307`), así que esos parámetros salen duplicados.
 
-## Paso 30: `shellprocess@enable_ufw`
+## Paso 30: `gucc@enable_ufw`
 
-`src/scripts/enable-ufw` (ufw está instalado por el subgrupo *firewall*), en el
-target:
+`gucc_enable_ufw.conf` (`action: enable-ufw`) → `GuccJob.cpp:59-64` →
+`gucc::firewall::enable_ufw` (`gucc:src/firewall.cpp:23-34,74-92`). Solo si
+`ufw` está instalado en el target (lo está, por el subgrupo *firewall*):
 
 ```bash
-systemctl enable ufw
-ufw default deny incoming
-ufw default allow outgoing
-ufw enable
+arch-chroot "$ROOT" /usr/bin/systemctl enable ufw
+arch-chroot "$ROOT" ufw default deny incoming
+arch-chroot "$ROOT" ufw default allow outgoing
+arch-chroot "$ROOT" ufw enable
+# solo si kdeconnect está instalado (no en la instalación base):
+arch-chroot "$ROOT" ufw allow "KDE Connect"
 ```
 
-## Paso 32-33: snapshot y limpieza
+Mismos comandos que el `src/scripts/enable-ufw` de antes, pero ahora un
+fallo **detiene la instalación** (antes `shellprocess` sin `-`, también
+fatal; sin cambio práctico). `arch-chroot` tampoco aísla la red: el
+hallazgo 8 sigue en pie.
 
-- `btrfs-installation-snapshot` sale sin hacer nada: no está
-  `cachyos-snapper-support`.
-- Luego `rm` del script, `rmdir /etc/calamares/scripts` y `rmdir /etc/calamares`
-  en el target.
+## Pasos 32-33: snapshot y limpieza
+
+- `gucc@btrfs_snapshot` → `gucc::fs::create_btrfs_installation_snapshot`
+  (`gucc:src/btrfs.cpp:123-142`) sale sin hacer nada: no está
+  `cachyos-snapper-support`. Con él haría `arch-chroot … snapper --no-dbus -c
+  root create --print-number --description 'Fresh CachyOS Installation'
+  --userdata 'important=yes'` y guardaría el número en
+  `/etc/cachyos/installation-snapshot`.
+- `shellprocess@cleanup_calamares`: `rmdir /etc/calamares/scripts` y `rmdir
+  /etc/calamares` en el target (ignorando errores).
 
 ## Paso 34: `umount`
 
@@ -860,13 +985,15 @@ profundo a menos) y al final `umount -lv $ROOT`. **No cierra el mapper LUKS**.
 | LUKS2 | `aes-xts-plain64` (por defecto), clave de 512 bits, sha512, argon2id, sector 4096, 1 keyslot (contraseña) |
 | btrfs | `@ @home @root @srv @cache @tmp @log`; `@root` 0750 |
 | `/etc/kernel/cmdline` | `quiet nowatchdog splash rw rootflags=subvol=/@ rd.luks.uuid=<U> root=/dev/mapper/luks-<U>` (ver hallazgo 1) |
-| `mkinitcpio.conf` HOOKS | `base systemd autodetect microcode kms modconf block keyboard sd-vconsole plymouth sd-encrypt filesystems` |
+| `mkinitcpio.conf` HOOKS | `base systemd autodetect microcode modconf block keyboard sd-vconsole plymouth sd-encrypt filesystems` (sin `kms`) |
+| Plymouth | tema `cachyos-bootanimation` (o `cachyos` con GPU AMD), `UseSimpledrm=1` en `plymouthd.conf` |
 | ESP | `EFI/systemd/`, `EFI/BOOT/BOOTX64.EFI`, `loader/loader.conf`, `loader/entries/linux-cachyos{,-lts}.conf`, `vmlinuz-*`, `initramfs-*.img`, `<machine-id>/<kver>/…` (hallazgo 2) |
 | NVRAM | entrada "Linux Boot Manager" creada por `bootctl install` |
 | Usuario | shell fish, grupos `wheel rfkill sys users lp video network storage audio nopasswdlogin`, home 0700 |
 | sudo | `/etc/sudoers.d/10-installer`: `%wheel ALL=(ALL) ALL` |
 | Locale/teclado/zona | ver Pasos 10-12 |
 | Servicios activados por Calamares | NetworkManager, avahi-daemon, systemd-timesyncd, fstrim.timer, bluetooth, ufw |
+| Restos | `/usr/local/bin/remove-nvidia`, enlace roto `ly@tty2.service`, sin `getty@tty2` en `getty.target.wants` |
 
 ## Hallazgos y peculiaridades
 
@@ -888,6 +1015,9 @@ código, pendiente de confirmar en VM).
    comprobar que no crea también un directorio con el machine-id del live.
 3. **[deducido] Tres generaciones de initramfs.** `mkinitcpio -P` (Paso 21) y
    `kernel-install` (dos `mkinitcpio` más). Las que arranca son las del Paso 21.
+   El paso `gucc@reset_mk_hook` va **después** de `bootloader`, así que el
+   hook normal no interviene; los dos `mkinitcpio` extra son del plugin
+   `50-mkinitcpio` de `kernel-install`.
 4. **[verificado] `remove-nvidia` se queda en el target** como
    `/usr/local/bin/remove-nvidia`, sin dueño. El paso que lo ejecuta y borra
    (`shellprocess-before`) no está en la secuencia online.
@@ -910,12 +1040,21 @@ código, pendiente de confirmar en VM).
 11. El `90-mkinitcpio-install.hook` que queda en `/etc/pacman.d/hooks/` de esta
     máquina es de `limine-mkinitcpio-hook` (rama limine), no un resto de
     Calamares.
+12. **[deducido] Enlace roto `ly@tty2.service`** y `getty@tty2.service` fuera
+    de `getty.target.wants`, por `dmcheck` (Paso 29), también sin escritorio.
+13. **[deducido] `plymouthd.conf` con dos secciones `[Daemon]`** y
+    `UseSimpledrm=1` en ambas (Paso 18).
+14. **Mezcla de `chroot` y `arch-chroot`**: los pasos portados a gucc
+    (`initcpio`, `hwclock`, `enable_ufw`, snapshot) usan `arch-chroot`; el
+    resto, `chroot` sobre los montajes de API del módulo `mount`.
 
 ## Evidencia empírica
 
-Esta máquina (`cachyhos`, VM VirtualBox) se instaló con este Calamares el
-2026-11-14, en **BIOS, limine, sin cifrado y *No Desktop***. No coincide con
-nuestro camino en bootloader, firmware ni cifrado, pero confirma:
+Esta máquina (`cachyhos`, VM VirtualBox) se instaló con el Calamares de
+`cachyos-dev` (`cachyos-calamares-next`) el 2026-11-14, en **BIOS, limine,
+sin cifrado y *No Desktop***. No coincide con nuestro camino en bootloader,
+firmware ni cifrado, ni con la rama `staging` en el orden de `users`, `kms` y
+plymouth, pero confirma:
 
 - `/var/log/pacman.log:1` (pacstrap): la orden literal `pacman --sysroot
   /tmp/calamares-root-… -Sy --noconfirm --needed base base-devel … limine
@@ -948,6 +1087,10 @@ nuestro camino en bootloader, firmware ni cifrado, pero confirma:
 - Efecto de `ufw enable` en el live (hallazgo 8).
 - Qué instala `chwd --autoconfigure` en el hardware de destino.
 - Parámetros reales del LUKS2 (`cryptsetup luksDump`) con cryptsetup 2.8.
+- Contenido final de `plymouthd.conf` (hallazgo 13) y que el splash se ve sin
+  `kms`.
+- Permisos de los initramfs con `arch-chroot` (Paso 21).
+- Enlace `ly@tty2.service` (hallazgo 12).
 
 ## Puntos de decisión para la comparación con New-Cli-Installer
 
@@ -963,3 +1106,32 @@ No se deciden aquí; se recogen para la tabla de diferencias de la Fase 2.
 - ¿Mantener `ufw enable` al final o moverlo para no cortar SSH al live?
 - Cerrar el mapper LUKS al desmontar (Calamares no lo hace).
 - Cómo encaja TPM2 (Fase 5) sobre `sd-encrypt` + `rd.luks.uuid`.
+
+## Cambios respecto a `cachyos-dev`
+
+Resumen de lo que cambia en este camino entre la versión auditada primero
+(`cachyos-dev` `199d71543`) y la empaquetada (`cachyos-staging`
+`42a91ab23`). Fuera de este camino `staging` además no tiene la plataforma
+*handheld*, el bootloader `refind-ai`, greetd/noctalia-greeter (Hyprland
+vuelve a SDDM, ver el anexo Hyprland) ni los presets de usuario por
+plataforma.
+
+| Tema | `cachyos-dev` | `cachyos-staging` | Paso |
+|---|---|---|---|
+| Orden de `users` | tras `machineid` | **tras `initcpio`** (después de todos los paquetes) | 9 |
+| Diferir/restaurar initramfs | `shellprocess@{modify,reset}_mk_hook` (también copia el hook al live) | `gucc@{modify,reset}_mk_hook` (solo el target; mismo contenido) | 4, 27 |
+| Kernels | añadidos en `pacstrap/main.py` y grupo oculto de netinstall | en `pacstrap.conf` y en *CachyOS required* | 7, 14 |
+| Plymouth | en `pacstrap` | grupo netinstall **Plymouth** (crítico, desmarcable) | 7, 14 |
+| `plymouthcfg` | solo el tema | el tema (si existe) + **`UseSimpledrm=1`** | 18 |
+| `kms` en `HOOKS` | sí | **no** | 20 |
+| `machineid` | código de Calamares | `gucc::machine_id::reset` (mismo resultado) | 8 |
+| `initcpio` | `chroot … mkinitcpio -P` | `arch-chroot … mkinitcpio -P` | 21 |
+| `hwclock`, `enable_ufw`, snapshot, `zfshostid` | módulos/shellprocess propios | módulo `gucc` (mismos comandos, con `arch-chroot`) | 24, 30, 32, 19 |
+| `dmcheck` | `/etc/calamares/scripts/dmcheck` (paquete) | `/usr/local/bin/dmcheck` de la ISO | 7, 29 |
+| Servicios | — | `arch-update-tray.service` (`--global`; no instalado) | 28 |
+| netinstall | descarga de `cachyos-dev` | descarga de la rama `cachyos`; `gst-plugin-dav1d` | 14 |
+
+Sin cambios en este camino: `partition`, `mount`, `shellprocess@initialize_pacman`,
+`shellprocess@before-online`, `locale`, `keyboard`, `localecfg`, `chwd`,
+`packages`, `fstab`, `networkcfg`, `bootloader` (systemd-boot),
+`bootloader-post-setup`, `shell-setup` y `umount`.
