@@ -30,6 +30,12 @@ airootfs/etc/systemd/system/dbus-org.freedesktop.ModemManager1.service
 airootfs/etc/systemd/system/multi-user.target.wants/ModemManager.service
 airootfs/etc/systemd/system/sockets.target.wants/pcscd.socket
 
+# Live con un solo kernel (linux-cachyos) y sin ZFS: el preset de upstream
+# apunta a vmlinuz-linux-cachyos-lts (mkinitcpio -P fallaría sin ese kernel) y
+# modules-load.d cargaría el módulo zfs, que ya no existe.
+airootfs/etc/mkinitcpio.d/linux.preset
+airootfs/etc/modules-load.d/zfs.conf
+
 # Herramientas de máquinas virtuales
 airootfs/etc/systemd/system/multi-user.target.wants/hv_fcopy_daemon.service
 airootfs/etc/systemd/system/multi-user.target.wants/hv_kvp_daemon.service

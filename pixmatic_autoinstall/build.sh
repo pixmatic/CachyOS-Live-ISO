@@ -4,6 +4,7 @@
 # del repo, sin modificar ningún fichero versionado:
 #   1. copia los scripts y archiso/ a build/pixmatic/tree
 #   2. elimina las rutas de remove.list y aplica el overlay archiso/
+#      (incluye pacman.conf con los repos x86-64-v3)
 #   3. añade profiledef.append.sh al final de la copia de profiledef.sh
 #   4. hace que la copia de util-iso.sh cargue prepare_profile.sh (sustituye
 #      al prepare_profile() de upstream, que es específico del escritorio) y
@@ -35,6 +36,21 @@ if ! diff -u "${pix_dir}/prepare_profile.upstream" \
     plain "Revisa si hay que incorporar algo a pixmatic_autoinstall/prepare_profile.sh y actualiza la referencia:"
     plain "awk '/^prepare_profile\\\\(\\\\)/,/^}/' util-iso.sh > pixmatic_autoinstall/prepare_profile.upstream"
     exit 1
+fi
+
+# pacman.conf del overlay = el de upstream + repos x86-64-v3. Si upstream lo
+# cambia, llevar el cambio al overlay antes de actualizar la referencia.
+if ! diff -u "${pix_dir}/pacman.conf.upstream" "${src_dir}/archiso/pacman.conf"; then
+    error "archiso/pacman.conf ha cambiado en upstream (diff arriba)."
+    plain "Lleva el cambio a pixmatic_autoinstall/archiso/pacman.conf (conservando los repos -v3) y actualiza la referencia:"
+    plain "cp archiso/pacman.conf pixmatic_autoinstall/pacman.conf.upstream"
+    exit 1
+fi
+
+# Los paquetes del live son x86-64-v3 y mkarchiso ejecuta sus scriptlets y
+# hooks en el host durante la build: el host tiene que soportar x86-64-v3.
+if ! /lib/ld-linux-x86-64.so.2 --help | grep -q 'x86-64-v3 (supported'; then
+    die "This host's CPU does not support x86-64-v3, required to build the ISO with -v3 packages"
 fi
 
 # trap_exit.sh replica el PR #122 de upstream; si ya está incorporado, sobra.

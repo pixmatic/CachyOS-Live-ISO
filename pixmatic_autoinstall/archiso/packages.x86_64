@@ -2,12 +2,11 @@
 # Solo consola: sin Plasma, sin Calamares, sin herramientas de rescate.
 
 # Sistema base y arranque del live (solo UEFI: el binario de systemd-boot sale
-# del paquete systemd y su única entrada usa linux-cachyos)
+# del paquete systemd y su única entrada usa linux-cachyos). Un único kernel,
+# sin -lts ni ZFS. Los paquetes salen de los repos x86-64-v3 (pacman.conf del
+# overlay): la ISO no arranca en CPUs sin x86-64-v3.
 base
 linux-cachyos
-linux-cachyos-zfs
-linux-cachyos-lts
-linux-cachyos-lts-zfs
 linux-firmware
 linux-firmware-marvell
 amd-ucode
@@ -31,17 +30,16 @@ cachyos-cli-installer-new
 arch-install-scripts
 chwd
 
-# Discos y sistemas de ficheros soportados por el instalador
+# Discos y sistemas de ficheros: solo lo que usa el instalador propio (GPT con
+# sgdisk/sfdisk, ESP vfat, btrfs, LUKS2). e2fsprogs lo arrastra krb5 de todos
+# modos. nvme-cli: borrado seguro del disco antes de particionar
+# (nvme format --ses / nvme sanitize); blkdiscard (util-linux) para el resto.
 btrfs-progs
 cryptsetup
 dosfstools
 e2fsprogs
-f2fs-tools
 gptfdisk
-lvm2
-parted
-xfsprogs
-zfs-utils
+nvme-cli
 
 # Red
 networkmanager
@@ -54,6 +52,5 @@ systemd-resolvconf
 # Utilidades de consola
 sudo
 nano
-vim
 less
 bash-completion

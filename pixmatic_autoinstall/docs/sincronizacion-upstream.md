@@ -96,6 +96,13 @@ grep -vE '^\s*(#|$)' pixmatic_autoinstall/archiso/packages.x86_64 \
 
 # e) cambios en la lista de paquetes de escritorio (pistas de renombrados)
 git diff --staged -- archiso/packages_desktop.x86_64
+
+# f) pacman.conf de build: si hay diff, llevarlo a
+#    pixmatic_autoinstall/archiso/pacman.conf (conservando los repos -v3) y
+#    regenerar la referencia
+diff archiso/pacman.conf pixmatic_autoinstall/pacman.conf.upstream \
+  && echo "pacman.conf sin cambios"
+# cp archiso/pacman.conf pixmatic_autoinstall/pacman.conf.upstream
 ```
 
 Comprobar que no queda ningún conflicto sin resolver (no debe mostrar nada):

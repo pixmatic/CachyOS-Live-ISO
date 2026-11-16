@@ -29,6 +29,11 @@ fusionar periódicamente con upstream (`CachyOS/CachyOS-Live-ISO`).
 - `prepare_profile.upstream` — copia de referencia del `prepare_profile()` de
   upstream. Si upstream lo cambia, `build.sh` se detiene y muestra el diff.
 - `archiso/packages.x86_64` — lista de paquetes propia (solo consola).
+- `archiso/pacman.conf` — el `pacman.conf` de build de upstream con los repos
+  x86-64-v3 delante de `[cachyos]`: los paquetes del live son -v3 (la ISO solo
+  arranca en CPUs x86-64-v3 y el host de build tiene que soportarlo).
+- `pacman.conf.upstream` — copia de referencia de `archiso/pacman.conf` de
+  upstream. Si upstream lo cambia, `build.sh` se detiene y muestra el diff.
 - `archiso/airootfs/` — ficheros que se añaden o sustituyen en el live.
 - `settings.jsonc` — configuración de `cachyos-installer`, comentada (todas sus
   claves). Ya no es el mecanismo de instalación: se conserva para probar la ISO
