@@ -4,7 +4,8 @@
 #
 # Basado en el prepare_profile() de upstream guardado en
 # prepare_profile.upstream, sin los pasos propios del escritorio
-# (packages_desktop, display manager, motd de Calamares). build.sh se detiene
+# (packages_desktop, display manager, motd de Calamares) ni la versión en
+# grub.cfg (arrancamos con systemd-boot). build.sh se detiene
 # si la función de upstream cambia, para revisar si hay que incorporar algo.
 #
 # packages.x86_64, motd, environment y default.target vienen del overlay.
@@ -15,7 +16,7 @@ prepare_profile(){
     info "Profile: [%s]" "${profile}"
 
     local _iso_version="$(date +%y%m%d)"
-    change_grub_version "${_iso_version}"
+    # Sin change_grub_version: GRUB no se usa (remove.list quita grub/)
 
     # Fetch up-to-date version of CachyOS repo mirrorlist
     fetch_cachyos_mirrorlist

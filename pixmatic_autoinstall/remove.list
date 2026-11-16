@@ -37,3 +37,9 @@ airootfs/etc/systemd/system/multi-user.target.wants/hv_vss_daemon.service
 airootfs/etc/systemd/system/multi-user.target.wants/vboxservice.service
 airootfs/etc/systemd/system/multi-user.target.wants/vmtoolsd.service
 airootfs/etc/systemd/system/multi-user.target.wants/vmware-vmblock-fuse.service
+
+# Arranque UEFI con systemd-boot en lugar de GRUB (bootmodes en
+# profiledef.append.sh): fuera GRUB y las entradas de upstream; el overlay
+# trae loader.conf y una única entrada.
+grub
+efiboot/loader/entries

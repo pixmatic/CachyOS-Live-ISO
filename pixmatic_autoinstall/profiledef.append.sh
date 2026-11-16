@@ -4,6 +4,10 @@
 iso_publisher="pixmatic <https://github.com/pixmatic/CachyOS-Live-ISO>"
 iso_application="CachyOS pixmatic autoinstall"
 
+# UEFI con systemd-boot en lugar de GRUB (configuración en el overlay
+# archiso/efiboot/loader/). BIOS sigue con el syslinux de upstream.
+bootmodes=('bios.syslinux' 'uefi.systemd-boot')
+
 # Ficheros eliminados por remove.list
 for _f in calamares-online.sh dmcheck pkexec-wrapper prepare-live-desktop.sh \
           remove-nvidia removeun removeun-online; do
