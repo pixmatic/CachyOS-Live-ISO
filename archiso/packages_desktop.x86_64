@@ -15,7 +15,7 @@ breeze-gtk
 brltty
 btrfs-progs
 cachy-chroot
-cachyos-calamares-next
+cachyos-calamares-staging
 cachyos-cli-installer-new
 cachyos-drm-awaiter
 cachyos-fish-config
@@ -53,6 +53,7 @@ fakeroot
 fatresize
 firefox
 gcc
+ghostty-terminfo
 gpart
 gparted
 gptfdisk
@@ -63,17 +64,18 @@ hwinfo
 hyperv
 imwheel
 inetutils
+inotify-tools
 intel-ucode
 inxi
 irssi
 iw
 iwd
-inotify-tools
 jfsutils
 kate
 kcalc
 kde-gtk-config
 kinfocenter
+kmscon-terminfo
 konsole
 kscreen
 kxkb2locale1
@@ -83,11 +85,10 @@ lftp
 libfido2
 libusb-compat
 libwnck3
-linux-atm
-linux-cachyos-lts
-linux-cachyos-lts-zfs
-linux-cachyos-lts-nvidia-open
 linux-cachyos
+linux-cachyos-lts
+linux-cachyos-lts-nvidia-open
+linux-cachyos-lts-zfs
 linux-cachyos-nvidia-open
 linux-cachyos-zfs
 linux-firmware
@@ -145,6 +146,7 @@ pipewire-jack
 pipewire-pulse
 plasma-desktop
 plasma-integration
+plasma-login-manager
 plasma-nm
 plasma-pa
 plasma-thunderbolt
@@ -160,7 +162,6 @@ rp-pppoe
 rsync
 rtkit
 rxvt-unicode-terminfo
-plasma-login-manager
 sdparm
 sg3_utils
 smartmontools
