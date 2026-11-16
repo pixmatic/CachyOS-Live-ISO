@@ -38,8 +38,9 @@ airootfs/etc/systemd/system/multi-user.target.wants/vboxservice.service
 airootfs/etc/systemd/system/multi-user.target.wants/vmtoolsd.service
 airootfs/etc/systemd/system/multi-user.target.wants/vmware-vmblock-fuse.service
 
-# Arranque UEFI con systemd-boot en lugar de GRUB (bootmodes en
-# profiledef.append.sh): fuera GRUB y las entradas de upstream; el overlay
-# trae loader.conf y una única entrada.
+# Solo UEFI con systemd-boot (bootmodes en profiledef.append.sh): fuera GRUB,
+# syslinux (BIOS) y las entradas de upstream; el overlay trae loader.conf y
+# una única entrada.
 grub
+syslinux
 efiboot/loader/entries

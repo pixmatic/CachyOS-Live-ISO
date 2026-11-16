@@ -1,8 +1,8 @@
 # Paquetes de la ISO pixmatic (sustituye a archiso/packages_desktop.x86_64).
 # Solo consola: sin Plasma, sin Calamares, sin herramientas de rescate.
 
-# Sistema base y arranque del live (syslinux usa ambos kernels; systemd-boot,
-# solo linux-cachyos; el binario de systemd-boot sale del paquete systemd)
+# Sistema base y arranque del live (solo UEFI: el binario de systemd-boot sale
+# del paquete systemd y su única entrada usa linux-cachyos)
 base
 linux-cachyos
 linux-cachyos-zfs
@@ -16,7 +16,6 @@ mkinitcpio
 mkinitcpio-archiso
 mkinitcpio-nfs-utils
 nbd
-syslinux
 efibootmgr
 
 # Repositorios y claves
