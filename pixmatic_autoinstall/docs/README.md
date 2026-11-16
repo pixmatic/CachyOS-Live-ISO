@@ -3,6 +3,17 @@
 Resultados de la auditoría de los instaladores oficiales de CachyOS y decisiones
 derivadas para el instalador propio.
 
+- Proyecto:
+  - [fases.md](fases.md): plan y estado de cada fase.
+  - [decisiones.md](decisiones.md): todas las decisiones tomadas (ISO,
+    sistema instalado, disco y montajes, `pacstrap` único y orden de pasos,
+    repos y llaveros, Hyprland/Omarchy, `settings.jsonc`).
+  - [build.md](build.md): cómo se construye la ISO sin tocar upstream,
+    vigilancia tras merges, ficheros de upstream modificados y comportamiento
+    del live.
+  - [codigo-referencia.md](codigo-referencia.md): clones de upstream que se
+    auditan, versiones y notas.
+
 - Fase 2: instalación base (sin escritorio), Calamares vs New-Cli-Installer.
   - [auditoria-calamares-base.md](auditoria-calamares-base.md): secuencia de
     Calamares rama `cachyos-staging` (UEFI, systemd-boot, borrar disco con

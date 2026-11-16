@@ -121,7 +121,7 @@ de usuario/hostname…) también entran en `0.13.0` y no están revisados aquí:
    asimetría del cifrado; se cierran caché, ESP, `kms`, initramfs y orden del
    usuario; aparecen el tipo GPT de la raíz y `zswap.enabled=0`; R2 queda
    reducida al `SigLevel` de `[cachyos]` y R3 baja a bajo-medio.
-4. **Decisiones** (`CLAUDE.md`): ninguna queda contradicha. Varias quedan
+4. **Decisiones** ([decisiones.md](decisiones.md)): ninguna queda contradicha. Varias quedan
    respaldadas por upstream (tipo GPT de la raíz, initramfs generado una vez,
    usuario tras los paquetes, abortar si falla el usuario). A revisar:
    - plymouth: `UseSimpledrm=1` y `HOOKS` sin `kms` en lugar de «plymouth

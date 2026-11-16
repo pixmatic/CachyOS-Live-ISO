@@ -1,8 +1,8 @@
 # Auditoría de Omarchy 4.5 (instalación y paquetes)
 
 Qué hace Omarchy 4.x al instalarse, qué deja en el sistema y qué choca con
-CachyOS y con las decisiones de nuestro instalador (ver `CLAUDE.md`,
-*Decisiones tomadas*). Sustituye como referencia al script
+CachyOS y con las decisiones de nuestro instalador (ver
+[decisiones.md](decisiones.md)). Sustituye como referencia al script
 `omarchy-on-cachyos`, que solo funciona con Omarchy `v3.x` (clon borrado el
 2026-11-16; su lista de conflictos se comprueba aquí uno a uno, en la
 [sección 9](#9-conflictos-de-omarchy-on-cachyos-comprobados-en-4x)).
@@ -38,8 +38,8 @@ Prefijos de las rutas citadas: sin prefijo = `omarchy/`; `iso:` =
    (`agents/skills/install-scripts.md:5-7`). No hay `install.sh`: lo que
    adaptaba `omarchy-on-cachyos` ya no existe.
 2. Lo reutilizable sobre otro sistema es: los paquetes del repo `[omarchy]`
-   (`omarchy`, `omarchy-settings`, el escritorio Quickshell y unas 36
-   aplicaciones propias), las listas `install/omarchy-*.packages`, y tres
+   (`omarchy`, `omarchy-settings`, el escritorio Quickshell y 32 aplicaciones
+   propias), las listas `install/omarchy-*.packages`, y tres
    comandos idempotentes: `omarchy-apply-system` (root),
    `omarchy-provision-user` (usuario) y `omarchy-provision-first-run` (primer
    inicio de sesión).
@@ -268,31 +268,49 @@ todos** (p. ej. `zz-pixmatic.conf`), no `90-…`.
 - `omarchy update` hace `pacman -Syu --overwrite '/usr/share/omarchy/*'`
   (`bin/omarchy-update-system-pkgs:13,26`), sin tocar `pacman.conf`.
 
-Paquetes de `install/omarchy-base.packages` (162) que compila el repo
-`[omarchy]` (36): `aether asdcontrol cliamp disktree-bin ffmpeg gliff herdr
-hype hyprland hyprland-preview-share-picker localsend mise-bin monologue
-obsidian omacalc omacut omarchy-hyprland-titlebars omarchy-nvim
-omarchy-power-profiles-daemon omasnap omawrite owe pinta quickshell signed
-superwhisper-bin tobi-try ttf-ia-writer ttf-jetbrains-mono-nerd-basic ttfx
-tzupdate ufw-docker vi yaru-icon-theme yay yt-dlp`. El resto se resuelve
-con los repos de CachyOS + Arch (comprobado con `pacman -Si` en el host el
-2026-11-16; `nvim` no existe con ese nombre en Arch ni CachyOS, lo provee
-algún paquete de `[omarchy]`).
+Paquetes de `install/omarchy-base.packages` (162) que **sirve de verdad** el
+repo `[omarchy]` estable para x86_64 (base de datos
+`https://pkgs.omarchy.org/stable/x86_64/omarchy.db` descargada el
+2026-11-16, 258 paquetes) (32): `aether asdcontrol cliamp disktree-bin gliff
+herdr hype hyprland-preview-share-picker localsend mise-bin monologue omacalc
+omacut omarchy-hyprland-titlebars omarchy-nvim omarchy-power-profiles-daemon
+omasnap omawrite owe quickshell signed superwhisper-bin tobi-try
+ttf-ia-writer ttf-jetbrains-mono-nerd-basic ttfx tzupdate ufw-docker vi
+yaru-icon-theme yay yt-dlp`. El resto se resuelve con los repos de CachyOS +
+Arch (`pacman -Si` en el host), salvo **`nvim`**, que no existe con ese
+nombre en ningún repo comprobado (Arch lo llama `neovim`; probablemente lo
+resuelve el mirror congelado de Omarchy). 
 
-Paquetes que están **en los dos lados** con versiones distintas (x86_64,
-2026-11-16) y obligan a decidir el orden de repos:
+**Corrección (2026-11-16):** una primera versión de esta sección se sacó de
+los PKGBUILDs de `omarchy-pkgs`, que no coinciden con lo publicado: en el
+repo estable x86_64 **no están** `hyprland`, `ffmpeg`, `obsidian`, `pinta`,
+`nvidia-utils` ni `nvidia-open-dkms` (de NVIDIA solo la rama `580xx`), aunque
+haya PKGBUILD. Hyprland, ffmpeg, Obsidian y Pinta llegan de Arch (en
+Omarchy, por su mirror congelado).
 
-| Paquete | `[omarchy]` | CachyOS | Nota |
+Paquetes que están **en los dos lados** (x86_64, 2026-11-16), relevantes
+para el orden de repos:
+
+| Paquete | `[omarchy]` | CachyOS / otros | Nota |
 |---|---|---|---|
-| `hyprland` | 0.57.2-2 (con parches; «para que los PC se muevan con el plugin de barras de título», `pkgs:pkgbuilds/hyprland/PKGBUILD:8-11`) | 0.57.2-1.1 (`cachyos-extra-v3`) | `omarchy-hyprland-titlebars` es un plugin: debe casar con la ABI de su Hyprland. |
-| `quickshell` | 0.3.2.r7 (git) | 0.3.2-1.1 (`cachyos-extra-v3`) | El escritorio de Omarchy es Quickshell. |
-| `nvidia-utils`, `nvidia-open-dkms` | 615.78.08-3 | 620.70.06-2 (`cachyos-v3`) | Con `[omarchy]` primero, NVIDIA **bajaría** de versión respecto a los módulos de `linux-cachyos-nvidia-open` de `chwd`. |
-| `limine`, `limine-mkinitcpio-hook`, `limine-snapper-sync` | —, 1.41.0, — | 12.10.0, 1.40.0, 1.32.1 (`cachyos`) | CachyOS empaqueta la misma pila (sus instaladores la usan con `bootloader: limine`). |
-| `yay`, `localsend`, `walker`, `pinta`, `obsidian`, `yt-dlp` | sí | sí | Sin riesgo conocido. |
-| `ffmpeg`, `aquamarine`, `gtk2`, `alsa-ucm-conf` | solo aarch64 | — | No afectan a x86_64. |
+| `quickshell` | 0.3.2.r7.g2b4501a-1 | 0.3.2-1.1 (`cachyos-extra-v3`) | El escritorio de Omarchy es Quickshell. |
+| `omarchy-hyprland-titlebars` | 0.2.2-2, depende de **`hyprland=0.56.2`** | — (CachyOS tiene `hyprland` 0.57.2-1.1) | **Hoy no se puede instalar con el Hyprland de CachyOS** (versión exacta distinta). El PKGBUILD de `master` ya pide `0.57.2` (`pkgs:pkgbuilds/omarchy-hyprland-titlebars/PKGBUILD:14`), pero no está publicado en estable. |
+| `limine-mkinitcpio-hook`, `limine-snapper-sync` | 1.40.0-2, 1.32.1-2 | 1.40.0-1, 1.32.1-1 (`cachyos`) | Misma versión; solo cambia `pkgrel`. |
+| `nvidia-580xx-dkms`, `nvidia-580xx-utils`, `lib32-nvidia-580xx-utils` | 580.178.04-1.1 | — | Rama para GPU sin GSP. |
+| `yay`, `localsend`, `walker`, `yt-dlp` | sí | sí (`cachyos`, `extra`) | Sin riesgo conocido. |
+| `yaru-icon-theme` | sí | solo `chaotic-aur` | No está en CachyOS ni Arch. |
 
-Además, `yaru-icon-theme` no está en los repos de CachyOS ni de Arch (en el
-host aparece solo porque tiene `chaotic-aur`): solo llega desde `[omarchy]`.
+## Claves de firma (verificadas 2026-11-16)
+
+| Repo | Clave primaria (`--recv-keys`/`--lsign-key`) | Quién firma | Comprobación |
+|---|---|---|---|
+| `[omarchy]` | `40DFB630FF42BCFFB047046CF0134EE680CAC571` (`Omarchy <pkgs@omarchy.org>`) | la propia clave primaria | Firmas `.sig` de `omarchy-keyring-20251027-1-any`, `omarchy-4.5.0-3-x86_64` y `quickshell-0.3.2.r7…-x86_64`; es la única clave de `omarchy-trusted` del paquete `omarchy-keyring` e igual a `iso:builder/omarchy.gpg` y a la que firma la ISO (`iso:README.md`). La base de datos no va firmada (`omarchy.db.sig` da 404; la plantilla usa `SigLevel = Required DatabaseOptional`). |
+| `[chaotic-aur]` | `EF925EA60F33D0CB85C44AD13056513887B78AEB` (`3056513887B78AEB`, Pedro Henrique Lara Campos) **y** `67BF8CA6DA181643C9723B4ED6C9442437365605` (`D6C9442437365605`, TNE) | subclaves de firma: `chaotic-keyring` la firma `BFB13EA5…3A40CB5E7E5CBC30` (de `3056513887B78AEB`); `chaotic-mirrorlist` y los paquetes normales (p. ej. `yaru-icon-theme`), `42FE8BA5…349BC7808577C592` (de `D6C9442437365605`, caduca 2028-06-14) | Firmas `.sig` en `cdn-mirror.chaotic.cx`; las dos primarias son las de `chaotic-trusted` del paquete `chaotic-keyring` 20251028-1. Con solo `3056513887B78AEB` (lo que dicen las instrucciones oficiales, que luego instalan `chaotic-keyring`) **no** se verificarían el resto de paquetes en un `pacstrap` que no instale antes el llavero: hay que firmar las dos. |
+
+Las tres claves se descargan con subclaves de `hkps://keyserver.ubuntu.com`
+(probado con un `GNUPGHOME` temporal). `/etc/pacman.d/gnupg/gpg.conf` no fija
+servidor de claves, así que conviene pasar `--keyserver` explícito a
+`pacman-key --recv-keys`.
 
 ## 6. Ficheros de `/etc` que impone `omarchy-settings`
 

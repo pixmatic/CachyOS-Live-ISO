@@ -7,7 +7,7 @@ Protocolo para traer a `pixmatic_iso` los cambios de
   commits propios (los hooks locales bloquean commits fuera de `pixmatic_iso`).
 - Todo lo nuestro vive en `pixmatic_autoinstall/`; no borramos ni modificamos
   ficheros de upstream salvo los listados en *Ficheros de upstream modificados*
-  de `CLAUDE.md`. Por eso los conflictos deberían ser raros, pero un merge
+  de [build.md](build.md). Por eso los conflictos deberían ser raros, pero un merge
   limpio **no garantiza** que nuestra build siga funcionando: hay que hacer
   siempre la revisión del paso 5.
 
@@ -55,7 +55,7 @@ Códigos de conflicto (columnas XY: X = nuestro lado, Y = upstream):
 | Código | Significado | Qué hacer |
 |---|---|---|
 | `UU` | ambos modificaron | resolver a mano |
-| `UD` | upstream borró un fichero que modificamos | decidir si mantenerlo (`git add`) o borrarlo (`git rm`) y actualizar `CLAUDE.md` |
+| `UD` | upstream borró un fichero que modificamos | decidir si mantenerlo (`git add`) o borrarlo (`git rm`) y actualizar *Ficheros de upstream modificados* de [build.md](build.md) |
 | `DU` | nosotros borramos, upstream modificó | no debería pasar (no borramos ficheros de upstream): restaurar la versión de upstream con `git checkout master -- ruta` y `git add ruta` |
 | `AA` | ambos añadieron la misma ruta | resolver a mano |
 

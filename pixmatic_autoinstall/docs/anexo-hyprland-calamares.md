@@ -168,7 +168,7 @@ Sin `User=` no hay autologin; `Session=` solo se usa en el autologin, así que
 el efecto práctico es nulo y SDDM recuerda la última sesión elegida. El
 greeter queda con el tema por defecto del paquete (no hay paquete de tema de
 CachyOS en el grupo). Este `/etc/sddm.conf` es el que `omarchy-on-cachyos`
-borra antes de instalar Omarchy (ver `CLAUDE.md`).
+borra antes de instalar Omarchy (ver [codigo-referencia.md](codigo-referencia.md#omarchy-on-cachyos-ya-no-se-usa)).
 
 ## Paso 29: `shellprocess` (principal)
 

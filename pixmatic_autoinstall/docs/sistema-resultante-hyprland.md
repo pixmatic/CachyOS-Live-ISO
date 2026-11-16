@@ -9,7 +9,7 @@ escenarios:
 - **B. Omarchy 4.5** encima de esa misma base.
 
 No es una auditoría: es una síntesis de las decisiones ya tomadas
-(`CLAUDE.md`, *Decisiones tomadas*) y de lo auditado en:
+([decisiones.md](decisiones.md)) y de lo auditado en:
 
 - [comparacion-base-resultante.md](comparacion-base-resultante.md) (base;
   Calamares `cachyos-staging` `42a91ab23` vs NCI `0.13.0`);
@@ -20,6 +20,15 @@ No es una auditoría: es una síntesis de las decisiones ya tomadas
 
 Fecha: 2026-11-16. Las versiones de paquetes son las de los repos ese día.
 
+> **Decisión (2026-11-16): escenario A; no se aplica Omarchy.** De Omarchy
+> solo se toman (a) las aplicaciones que se elijan de
+> `install/omarchy-base.packages` y (b) el tema visual de Hyprland (Tokyo
+> Night, plantillas `default/themed/*.tpl`, `config/hypr/looknfeel.lua`;
+> el escritorio Quickshell está por auditar). El escenario B y sus opciones
+> de arranque se conservan como referencia de por qué no se aplica; sus
+> «Decisiones pendientes» quedan cerradas salvo la shell y el autologin con
+> LUKS.
+
 ## Resumen
 
 | | Base (sin escritorio) | A. + Hyprland de CachyOS | B. + Omarchy 4.5 |
@@ -27,7 +36,7 @@ Fecha: 2026-11-16. Las versiones de paquetes son las de los repos ese día.
 | Bootloader | systemd-boot | systemd-boot | **Limine** (dependencia dura de `omarchy`) o systemd-boot con Limine neutralizado; ver [B.1](#b1-arranque-el-conflicto-que-hay-que-decidir) |
 | initramfs | systemd + `sd-encrypt` | igual | Omarchy fija HOOKS busybox; hay que anularlos con un drop-in propio |
 | Repos | CachyOS optimizados | igual | CachyOS + `[omarchy]`; Omarchy **reescribe** `pacman.conf` al instalarse |
-| Escritorio | — | Hyprland + Noctalia (`cachyos-hypr-noctalia`), dolphin, kitty | Hyprland (build de Omarchy) + Quickshell de Omarchy, ≈160 paquetes |
+| Escritorio | — | Hyprland + Noctalia (`cachyos-hypr-noctalia`), dolphin, kitty | Hyprland (en Omarchy, de su mirror congelado de Arch) + Quickshell de Omarchy, ≈160 paquetes |
 | DM | — | SDDM, sin autologin | SDDM con tema `omarchy`, autologin con LUKS |
 | Identidad | CachyOS | CachyOS | `/etc/os-release` = **Omarchy** |
 | Encaje con lo que prueba CachyOS | alto | alto (grupo oficial de Calamares) | bajo-medio: dos distribuciones mezcladas |
@@ -40,7 +49,7 @@ Recomendación en [Decisiones pendientes](#decisiones-pendientes).
 
 ## Base común (lo que deja nuestro instalador sin escritorio)
 
-Resumen de las decisiones; el porqué está en `CLAUDE.md` y en la
+Resumen de las decisiones; el porqué está en [decisiones.md](decisiones.md) y en la
 comparación.
 
 | Área | Estado final |
@@ -171,21 +180,21 @@ fijados.
 
 Orden de repos (pacman usa el primero que tenga el paquete):
 
-- `hyprland` debe venir de `[omarchy]`: `omarchy-hyprland-titlebars` depende
-  de `hyprland=0.57.2`
-  (`pkgs:pkgbuilds/omarchy-hyprland-titlebars/PKGBUILD:14`). Con CachyOS
-  delante, en cuanto CachyOS publique otra versión de Hyprland, `pacman
-  -Syu` fallará por esa dependencia hasta que Omarchy recompile. Lo mismo,
-  en menor grado, con `quickshell` (el escritorio de Omarchy).
-- Con `[omarchy]` delante (como hace Omarchy), también vienen de ahí
-  `nvidia-utils`/`nvidia-open-dkms` (615.78 frente a 620.70 de CachyOS),
-  `limine-mkinitcpio-hook`, `yay`, `walker`, `localsend`… y el Hyprland de
-  Omarchy, compilado contra las librerías de Arch, se enlaza con las
-  `hyprutils`/`aquamarine` **de CachyOS**: **a verificar** que las sonames
-  coinciden (si no, Hyprland no arranca tras una actualización de CachyOS).
-- Propuesta: `[omarchy]` **delante** de los repos de CachyOS, como en Omarchy,
-  y NVIDIA a la manera de Omarchy ([B.4](#b4-nvidia)). Es la opción con
-  menos combinaciones no probadas por ninguno de los dos.
+> **Corregido (2026-11-16)** con la base de datos real del repo estable
+> x86_64 ([auditoria-omarchy.md §5](auditoria-omarchy.md#5-repositorios-y-pacmanconf)):
+> `[omarchy]` **no publica** `hyprland` ni `nvidia-utils`/`nvidia-open-dkms`
+> para x86_64, así que el orden de repos no los afecta. La versión anterior
+> de este apartado (Hyprland y NVIDIA de `[omarchy]`) se sacó de los
+> PKGBUILDs y era errónea.
+
+- `omarchy-hyprland-titlebars` publicado depende de `hyprland=0.56.2`;
+  con el Hyprland de CachyOS (0.57.2) **no se puede instalar** hasta que
+  Omarchy publique una versión para 0.57.2.
+- Solapes reales: `quickshell` (git en `[omarchy]`), `yay`, `walker`,
+  `localsend`, `yt-dlp`, `limine-*` (mismas versiones). Ninguno crítico.
+- **Decisión final** (2026-11-16, ver [decisiones.md §6](decisiones.md#6-repositorios-y-llaveros)): `[omarchy]` **detrás**
+  de los repos de CachyOS y Arch y `[chaotic-aur]` el último; `[omarchy]`
+  solo con la personalización «omarchy» activada.
 
 ### B.4 NVIDIA
 
@@ -210,7 +219,7 @@ Con etckeeper (Fase 6) todos estos cambios quedan registrados en git.
 
 ### B.6 Shell
 
-Omarchy 4.x **no exige fish** (la nota de `CLAUDE.md` venía de
+Omarchy 4.x **no exige fish** (la nota anterior venía de
 `omarchy-on-cachyos`): su entorno llega por `/etc/profile.d/omarchy.sh`,
 `.bashrc` y `uwsm/env.d`, y no hay ninguna referencia a fish en su código.
 Con fish como shell (decisión de la base) hace falta el paquete opcional
@@ -230,7 +239,7 @@ que Hyprland queda en `es` sin más), usuario creado tras los paquetes
 ### B.8 Paquetes y servicios añadidos
 
 - ≈160 paquetes de `omarchy-base.packages` (escritorio Quickshell,
-  Chromium, LibreOffice, Docker, fcitx5, Obsidian, mise, etc.); 36 solo
+  Chromium, LibreOffice, Docker, fcitx5, Obsidian, mise, etc.); 27 solo
   existen en `[omarchy]`.
 - Servicios activados: `sddm`, `docker.socket`, `cups`, `avahi-daemon`,
   `power-profiles-daemon`, `systemd-oomd`, `systemd-resolved`,
@@ -247,19 +256,19 @@ que Hyprland queda en `es` sin más), usuario creado tras los paquetes
 | HOOKS | systemd, `sd-encrypt` | = | systemd por drop-in `zz-` (+ `sd-btrfs-overlayfs`) | systemd por drop-in `zz-` |
 | Rollback | `snapper rollback` + `set-default` | = | `limine-snapper-sync` | `snapper rollback` |
 | Repos | CachyOS | = | `[omarchy]` + CachyOS, restaurado tras `apply-system` | igual |
-| Hyprland | — | CachyOS 0.57.2-1.1 | Omarchy 0.57.2-2 | igual |
+| Hyprland | — | CachyOS 0.57.2-1.1 | el de los repos de Arch/CachyOS (`[omarchy]` no lo publica en x86_64) | igual |
 | Escritorio | — | Noctalia | Quickshell de Omarchy | igual |
 | DM / autologin | — | SDDM / no | SDDM tema `omarchy` / con LUKS | igual |
 | Plymouth | tema CachyOS | = | tema Omarchy | igual |
-| NVIDIA | `chwd` | = | DKMS de Omarchy | igual |
+| NVIDIA | `chwd` | = | DKMS (`nvidia-open-dkms` de Arch) por el script de Omarchy | igual |
 | `os-release` | CachyOS | = | Omarchy | Omarchy |
 | Teclado Hyprland | — | `es` (ajuste en la config del usuario) | `es` (de `vconsole.conf`) | igual |
 | Comandos de Omarchy rotos | — | — | ninguno conocido | los de Limine |
 
 ## Decisiones pendientes
 
-1. **¿A o B?** A es el sistema más fiel a CachyOS (objetivo 3 de
-   `CLAUDE.md`). B es lo que pide el objetivo 4 («Hyprland adaptando lo que
+1. **¿A o B?** A es el sistema más fiel a CachyOS (objetivo 3 del
+   proyecto). B es lo que pedía el objetivo 4 («Hyprland adaptando lo que
    hacen los instaladores oficiales y Omarchy»), pero mezcla dos
    distribuciones y cada actualización de `omarchy-settings` reescribe
    ficheros del sistema.

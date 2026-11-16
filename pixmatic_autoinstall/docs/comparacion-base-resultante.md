@@ -356,7 +356,7 @@ Además de lo que ya recoge cada auditoría:
 
 ## Puntos de decisión para el instalador propio
 
-La referencia ya está decidida (`CLAUDE.md`, *Decisiones tomadas*): replicar
+La referencia ya está decidida ([decisiones.md](decisiones.md)): replicar
 el **sistema resultante de Calamares** con la **forma de NCI**. Esta
 comparación actualizada no cambia esa decisión; refuerza varias de las
 desviaciones elegidas (tipo GPT `4F68BCE3…`, initramfs generado una vez,
@@ -381,3 +381,14 @@ usuario tras los paquetes). Puntos a revisar con los datos nuevos:
    es la referencia final (se adaptará Omarchy 4.x, Fase 3). Los tres usan
    SDDM; de Calamares se toma la técnica de instalar el escritorio antes de
    crear el usuario (dotfiles por `useradd -m`), y hay que fijar `kb_layout`.
+
+### Decisiones tomadas (2026-11-16)
+
+| Punto | Decisión |
+|---|---|
+| 1. Cifrado | Mapper `root` (lo fija gpt-auto con `gpt-auto-root-luks`); `keyboard` **antes de `autodetect`** (como NCI); `luksFormat` con los valores por defecto de `cryptsetup` para LUKS2. |
+| 2. Plymouth | **Como Calamares**: `UseSimpledrm=1` en un drop-in de `/etc/plymouth/plymouthd.conf.d/` y `HOOKS` sin `kms`. |
+| 3. `zswap.enabled=0` | **Sí**, en `/etc/kernel/cmdline` (como NCI). |
+| 4-7 | Ya decididos antes: caché vacía, un solo kernel, ESP y cmdline limpias, sin `fstab`. |
+| 8. `ModemManager` | **No se activa** (como NCI). |
+| 9. Hyprland | Escenario A de [sistema-resultante-hyprland.md](sistema-resultante-hyprland.md) (grupo de Calamares) con aplicaciones y tema visual tomados de Omarchy; no se aplica Omarchy. `kb_layout` se fija en la config del usuario. |
