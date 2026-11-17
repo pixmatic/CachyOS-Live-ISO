@@ -34,3 +34,11 @@ prepare_profile(){
 
     iso_file=$(gen_iso_fn).iso
 }
+
+# Sustituye a util-iso.sh:gen_iso_fn(): nombre fijo, sin la fecha de upstream
+# (cachyos-<perfil>-linux-AAMMDD), para que la ISO y su pkgs.txt tengan
+# siempre la misma ruta. build.sh define PIXMATIC_ISO_NAME y comprueba que la
+# ISO sale con ese nombre (si upstream deja de usar gen_iso_fn, fallará ahí).
+gen_iso_fn(){
+    echo "${PIXMATIC_ISO_NAME:?}"
+}

@@ -12,7 +12,8 @@
 #      al prepare_profile() de upstream, que es específico del escritorio) y
 #      trap_exit.sh (no avisa de error al terminar bien; PR #122 de upstream)
 #   6. ejecuta ./buildiso.sh -p pixmatic en la copia y mueve el resultado a
-#      out/pixmatic
+#      out/pixmatic, con nombre fijo (${iso_name}.iso, sin fecha; ver
+#      gen_iso_fn() en prepare_profile.sh), sustituyendo la build anterior
 #
 # Uso: sudo ./pixmatic_autoinstall/build.sh [opciones de buildiso.sh salvo -p]
 
@@ -27,6 +28,9 @@ import "${src_dir}/util.sh"
 tree_dir="${src_dir}/build/pixmatic/tree"
 out_dir="${src_dir}/out/pixmatic"
 profile="pixmatic"
+# Nombre fijo de la ISO (sin fecha); lo usa gen_iso_fn() de prepare_profile.sh
+export PIXMATIC_ISO_NAME="cachyos-pixmatic"
+iso_name="${PIXMATIC_ISO_NAME}"
 
 check_root "$0" "$@"
 
@@ -93,9 +97,12 @@ cd "${tree_dir}"
 rc=0
 ./buildiso.sh "$@" -p "${profile}" || rc=$?
 
-if ! compgen -G "${tree_dir}/out/${profile}/*.iso" > /dev/null; then
-    die "buildiso.sh did not produce an ISO (exit code ${rc})"
+if [[ ! -f "${tree_dir}/out/${profile}/${iso_name}.iso" ]]; then
+    die "buildiso.sh did not produce ${iso_name}.iso (exit code ${rc})"
 fi
+# Con nombre fijo, la build nueva sustituye a la anterior; se borran antes sus
+# ficheros para no dejar restos que ya no se generen (p. ej. un .sig viejo).
+rm -f "${out_dir}/${iso_name}".*
 mv "${tree_dir}/out/${profile}"/* "${out_dir}/"
 [[ -n "${SUDO_USER}" ]] && chown -R "${SUDO_USER}:" "${out_dir}"
 msg "ISO in [${out_dir}]"

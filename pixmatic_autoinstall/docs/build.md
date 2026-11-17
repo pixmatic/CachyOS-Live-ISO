@@ -31,7 +31,8 @@ Es un **envoltorio de `buildiso.sh`**:
    upstream es específica del escritorio), y de `trap_exit.sh`, que sustituye
    a `trap_exit()` para no avisar de error al terminar bien (mismo cambio que
    el PR upstream #122; cuando lo fusionen, `build.sh` avisa y se borran
-   `trap_exit.sh` y su import). Nunca se parchea con `sed`: añadir líneas al
+   `trap_exit.sh` y su import). `prepare_profile.sh` también sustituye a
+   `gen_iso_fn()` para que la ISO tenga nombre fijo (ver paso 6). Nunca se parchea con `sed`: añadir líneas al
    final no depende de patrones y no falla en silencio.
 5. Copia `settings.jsonc` (la configuración de `pixmatic-install`) tal
    cual, con sus comentarios, a `/etc/pixmatic/settings.jsonc`, para poder
@@ -41,8 +42,15 @@ Es un **envoltorio de `buildiso.sh`**:
    host; aborta si no es un objeto JSON) y lo instala con `/etc/pixmatic` 700 y el fichero 600 (vía
    `profiledef.append.sh`).
 6. Ejecuta `./buildiso.sh "$@" -p pixmatic` en la copia y mueve el resultado a
-   `out/pixmatic/` (`cachyos-pixmatic-linux-AAMMDD.iso`). El éxito se
-   comprueba por la ISO generada, no solo por el código de salida.
+   `out/pixmatic/` con **nombre fijo, sin fecha**: `cachyos-pixmatic.iso`
+   (más `.sha1`, `.sha256` y `cachyos-pixmatic.pkgs.txt`), en lugar del
+   `cachyos-pixmatic-linux-AAMMDD` de upstream. El nombre se define en
+   `build.sh` (`PIXMATIC_ISO_NAME`) y lo devuelve el `gen_iso_fn()` de
+   `prepare_profile.sh`. Cada build sustituye a la anterior (borra antes los
+   `cachyos-pixmatic.*` de `out/pixmatic/`). El éxito se comprueba por la ISO
+   generada con ese nombre, no solo por el código de salida (si upstream deja
+   de usar `gen_iso_fn`, la build falla ahí). La etiqueta de volumen
+   (`COS_AAAAMM`) y `/etc/version-tag` siguen llevando fecha.
 
 Reparto: *qué va en la ISO* (`prepare_profile`, paquetes, overlay) es
 nuestro; *cómo se construye* (`buildiso.sh`, `run_build`, firma, opciones) es
