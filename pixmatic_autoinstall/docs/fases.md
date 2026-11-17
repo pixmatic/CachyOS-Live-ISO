@@ -69,7 +69,7 @@ Instaladores oficiales (Calamares con Hyprland, `cachyos-installer` con
 
 - [x] Primera versión de pruebas (2026-11-16):
       `archiso/airootfs/usr/local/bin/pixmatic-install`, ejecución manual
-      (`sudo pixmatic-install [settings.jsonc]`). Sistema base sin escritorio,
+      (`sudo pixmatic-install [settings.jsonc]`; desde §10, desde el menú). Sistema base sin escritorio,
       LUKS2 con contraseña vacía, con `[chaotic-aur]`, ufw sin activar y sin
       borrado seguro NVMe; configuración desde `settings.jsonc`. Decisiones de esta versión en
       [decisiones.md §9](decisiones.md#9-primera-versión-del-instalador-2026-11-16).
@@ -92,8 +92,7 @@ Instaladores oficiales (Calamares con Hyprland, `cachyos-installer` con
       ([decisiones.md §8](decisiones.md#8-configuración-del-instalador-settingsjsonc)).
 - [x] Programas adicionales (`extra_packages`), grupos y paquetes de
       netinstall de Calamares (`additional_packages`; Firefox e Hyprland
-      activos), `on_finish`,
-      `console_keymap`, `firewall`, `user_fullname`.
+      activos), `console_keymap`, `firewall`, `user_fullname`.
 - [ ] Claves de la personalización «omarchy» (activar/desactivar;
       aplicaciones y temas, todos comentados), tras cerrar la Fase 3.
 - [x] Instalador sin preguntas (2026-11-17): sin confirmación y con las
@@ -101,10 +100,22 @@ Instaladores oficiales (Calamares con Hyprland, `cachyos-installer` con
 - [x] `ssh_server`: sshd activo en el sistema instalado con usuario y
       contraseña, también root (para depurar en VM; quitar al terminar).
 - [ ] Inyección de contraseñas sin publicarlas (el repo es público).
-- [ ] Servicio en el live que lance la instalación al arrancar (con red) y
-      reinicie o apague al terminar, **con salvaguarda** (cuenta atrás
-      cancelable en tty1 o entrada de systemd-boot específica) para no borrar
-      discos por accidente.
+- [x] Menú al entrar en el live, en tty1 y por SSH (2026-11-17,
+      `pixmatic-menu`,
+      [decisiones.md §10](decisiones.md#10-menú-del-live-2026-11-17)):
+      instalar (elegir disco de la lista con nombre y tamaño + confirmar
+      borrado; al terminar, reiniciar, apagar o consola; si falla, a la
+      consola), editar `settings.jsonc` con nano, modo consola, apagar.
+      Sustituye al servicio de instalación automática con salvaguarda. Fuera
+      `device` y `on_finish` de `settings.jsonc`.
+- [x] Menú probado en VM por el usuario (2026-11-18): tty1 y SSH, lista
+      de discos, confirmación con particiones, instalación, diálogo final y
+      salida a consola al fallar. Arreglos de la prueba: flechas por SSH
+      (`xterm-noapp`), motivo visible cuando la lista de paquetes no se
+      resuelve, y `geo-mirror` + `cdn-mirror` para `[chaotic-aur]` en el
+      `pacstrap` (decisiones §9 y §10).
+- [ ] Red: el menú no configura wifi; hoy, *Modo consola* → `nmtui` →
+      `sudo pixmatic-menu`.
 - [x] Teclado de consola: español en el live (`vconsole.conf` del overlay);
       el del sistema instalado, configurable (`console_keymap`).
 - [x] SSH al live como `root`/`liveuser` sin contraseña ni claves (para

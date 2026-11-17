@@ -294,9 +294,10 @@ añade estos repos.
   particionado y sistema de ficheros, `hw_clock`, `user_shell`,
   `user_groups`, kernel, bootloader, `os_prober`, escritorio y `netinstall`
   con su formato, perfiles de servidor, `post_install`, `chwd`, `hostcache`,
-  `carry_network`) y los alias.
-- Claves nuevas: `on_finish`
-  (`none`/`reboot`/`poweroff`), `console_keymap` (por defecto, `xkbmap`),
+  `carry_network`) y los alias. `device` y `on_finish` (clave nueva hasta
+  entonces) se quitaron el 2026-11-17: el disco y qué hacer al terminar se
+  eligen en el menú (§10).
+- Claves nuevas: `console_keymap` (por defecto, `xkbmap`),
   `firewall` (ufw; `false` por ahora), `user_fullname` (GECOS),
   `extra_packages` y `additional_packages`. La clave `confirm` (pedir
   escribir YES antes de borrar el disco) se quitó el 2026-11-17: el
@@ -359,8 +360,8 @@ añade estos repos.
 sigue el orden de §5. Lo que concreta o cambia respecto a lo anterior:
 
 - **Alcance**: sin escritorio, con `[chaotic-aur]` y sin `[omarchy]`,
-  ejecución manual (el servicio de arranque y la salvaguarda siguen
-  pendientes en la Fase 4). Configuración desde `settings.jsonc` (§8).
+  ejecución manual (desde el 2026-11-17 se lanza desde el menú del live,
+  §10). Configuración desde `settings.jsonc` (§8).
   **Sin preguntas** (2026-11-17): no pide confirmación antes de borrar el
   disco y `user_pass`/`root_pass` (obligatorias) se usan tal cual, aunque
   sean `CHANGEME` o vacías (antes se preguntaba la del usuario y root
@@ -431,9 +432,11 @@ sigue el orden de §5. Lo que concreta o cambia respecto a lo anterior:
   sin pisar las existentes y con `permissions=user:liveuser:;` cambiado al
   usuario, como Calamares (Cal §22).
 - **`[chaotic-aur]`** como en §6: claves `--recv-keys` + `--lsign-key` en el
-  live; al final del `pacman.conf`; el `pacstrap` usa `Server =
-  https://cdn-mirror.chaotic.cx/$repo/$arch` y el sistema instalado
-  `Include = /etc/pacman.d/chaotic-mirrorlist`; `chaotic-keyring` y
+  live; al final del `pacman.conf`; el `pacstrap` usa los servidores del
+  `chaotic-mirrorlist` del paquete (20260428-1) en su orden, `geo-mirror`
+  y `cdn-mirror` (`https://<x>.chaotic.cx/$repo/$arch`; antes solo
+  `cdn-mirror`, que el 2026-11-17 dio 503 continuos y tumbó la instalación
+  en la VM), y el sistema instalado `Include = /etc/pacman.d/chaotic-mirrorlist`; `chaotic-keyring` y
   `chaotic-mirrorlist` en el `pacstrap`.
 - Se replica de Calamares: paquetes (sus listas sin `-lts`, con `os-prober`,
   `firefox-i18n-es-es` y el resto de grupos preseleccionados; + `snapper` y
@@ -445,3 +448,52 @@ sigue el orden de §5. Lo que concreta o cambia respecto a lo anterior:
 - Borrado del disco: `wipefs` + `blkdiscard` (si el disco lo admite) +
   `sgdisk --zap-all`. **Sin borrado seguro con `nvme-cli` por ahora**
   (decisión del usuario, 2026-11-16); el paquete sigue en el live.
+
+## 10. Menú del live (2026-11-17)
+
+Sustituye al «servicio que lance la instalación al arrancar» de la Fase 4:
+la ISO no instala sola, abre un menú y la salvaguarda contra borrados
+accidentales es elegir el disco y confirmar el borrado.
+
+- **`pixmatic-menu`** (`archiso/airootfs/usr/local/bin/`, bash + `dialog`,
+  paquete añadido al live). Opciones: *Iniciar instalación*, *Editar
+  configuración*, *Modo consola*, *Apagar equipo*. Esc no sale del menú.
+- **Arranque**: `/etc/profile.d/pixmatic-menu.sh` lo ejecuta (con `sudo` si
+  no es root) una vez por sesión (`PIXMATIC_MENU_SHOWN`) en el login
+  automático de `liveuser` en tty1 (el autologin de upstream, sin tocar) y en
+  las sesiones SSH interactivas (`SSH_TTY`, como `root` o `liveuser`; en el
+  live ambos usan bash, que lee `/etc/profile`). No en otras consolas ni en
+  `ssh host comando`, `scp` o `sftp`. *Modo consola* sale al prompt; en tty1,
+  `exit` cierra la sesión y getty vuelve a abrir el menú; a mano, `sudo
+  pixmatic-menu`. Un cerrojo (`flock` sobre `/run/pixmatic-install.lock`)
+  impide dos instalaciones a la vez desde sesiones distintas. Alternativa
+  descartada: un servicio propio en tty1 en lugar de getty (habría que
+  reabrir getty para el modo consola).
+- **Instalación**: el disco **solo se elige de la lista**: discos
+  `TYPE=disk`, escribibles, de tamaño no nulo, sin `zram` y sin el medio de
+  arranque (el disco que contiene el sistema de ficheros con el UUID de
+  `archisosearchuuid=`, que se encuentra también con `copytoram`, cuando el
+  medio ya está desmontado). Cada entrada: ruta, tamaño y modelo. Después,
+  confirmación con «Cancelar» por defecto, que muestra el disco (tamaño
+  y modelo) y sus particiones (tamaño, sistema de ficheros, etiqueta y tipo
+  GPT), y `pixmatic-install <disco>`.
+- **`pixmatic-install <disco>`**: único argumento, el disco que pasa el menú;
+  la configuración es siempre `/etc/pixmatic/settings.jsonc`. Sin opciones
+  (ni `-d` ni otra ruta de configuración). Se quitan de `settings.jsonc`
+  `device` y `on_finish`. El instalador no pregunta nada (§9).
+- **Al terminar bien**: el menú ofrece *Reiniciar*, *Apagar* o *Salir a la
+  consola*. **Si falla**: el error queda en pantalla (y en
+  `/var/log/pixmatic-install.log`), se indica la ruta del log y se sale del
+  menú a la consola, con lo montado en `/mnt` para depurar.
+- **Editar configuración**: `nano` sobre `/etc/pixmatic/settings.jsonc`; al
+  cerrar se valida como lo lee el instalador (objeto JSON sin las líneas
+  `//`) y, si no vale, se ofrece volver a editar o deshacer los cambios.
+- Ctrl+C durante la instalación corta `pixmatic-install`, no el menú.
+- **Flechas por SSH** (visto en VM, 2026-11-17): con `TERM=xterm*`, `dialog`
+  activa el modo «cursor de aplicación» (`smkx`, `\E[?1h`) y espera las
+  flechas como `\EOA`; el cliente SSH del usuario lo ignora y envía `\E[A`,
+  que `dialog` toma como Esc (el menú se redibuja sin moverse). El menú lanza
+  `dialog` con `TERM=xterm-noapp` (terminfo de ncurses: no activa ese modo y
+  espera `\E[A`, 8 colores) cuando `TERM` empieza por `xterm`; en tty1
+  (`linux`) no cambia. Comprobado en el live enviando ambas secuencias.
+- Textos del menú en español; los del instalador siguen en inglés.

@@ -1,5 +1,5 @@
 CachyOS pixmatic autoinstall ISO
 https://github.com/pixmatic/CachyOS-Live-ISO
 
-Instalación automática: sudo pixmatic-install [settings.jsonc]
-  BORRA el disco de "device" (por defecto /etc/pixmatic/settings.jsonc)
+Menú del instalador: se abre al entrar (tty1 y SSH); a mano, sudo pixmatic-menu
+Configuración: /etc/pixmatic/settings.jsonc

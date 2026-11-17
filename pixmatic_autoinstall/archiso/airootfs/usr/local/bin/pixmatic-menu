@@ -1,0 +1,180 @@
+#!/bin/bash
+#
+# pixmatic-menu: menú del live de la ISO pixmatic. Se lanza solo al entrar
+# (/etc/profile.d/pixmatic-menu.sh): en el login automático de tty1 y en las
+# sesiones SSH interactivas. A mano: "sudo pixmatic-menu".
+#
+# Opciones:
+#   - Iniciar instalación: elegir el disco de la lista (nombre, tamaño y
+#     modelo), confirmar el borrado y ejecutar "pixmatic-install <disco>". Al
+#     terminar bien: apagar, reiniciar o salir a la consola. Si falla, sale a
+#     la consola.
+#   - Editar configuración: nano sobre settings.jsonc; al cerrarlo se valida y
+#     se vuelve al menú.
+#   - Modo consola: sale del menú y deja el prompt.
+#   - Apagar equipo.
+
+set -uo pipefail
+
+config="/etc/pixmatic/settings.jsonc"
+log="/var/log/pixmatic-install.log"
+lock="/run/pixmatic-install.lock"
+
+[[ ${EUID} -eq 0 ]] || { echo "ERROR: Run as root (sudo pixmatic-menu)" >&2; exit 1; }
+
+# Ctrl+C corta el instalador (vuelve a su acción por defecto en los hijos) pero
+# no el menú
+trap : INT
+
+# Por SSH (TERM=xterm*), dialog pone el terminal en modo "cursor de
+# aplicación" (smkx) y espera las flechas como ESC O A; algunos clientes lo
+# ignoran y envían ESC [ A, que dialog toma como Esc: las flechas no mueven el
+# menú. xterm-noapp no activa ese modo y espera ESC [ A, que es lo que envía
+# cualquier terminal en modo normal. Solo 8 colores, suficientes para dialog.
+# En la consola (TERM=linux) no cambia nada.
+dlg_term="${TERM:-linux}"
+[[ ${dlg_term} == xterm* ]] && dlg_term="xterm-noapp"
+dlg() { TERM="${dlg_term}" dialog --backtitle "CachyOS pixmatic" "$@"; }
+
+to_console() {
+    clear
+    echo "Para volver al menú: sudo pixmatic-menu"
+    exit 0
+}
+
+# settings.jsonc sin las líneas de comentario, como lo lee pixmatic-install
+config_ok() { grep -Ev '^[[:space:]]*//' "${config}" 2> /dev/null | jq -e 'type == "object"' &> /dev/null; }
+
+# Disco del que arrancó el live (no se ofrece para instalar): el que tiene, él
+# o una de sus particiones, el UUID del sistema de ficheros de la ISO
+# (archisosearchuuid=). Sirve también con copytoram, que desmonta el medio.
+boot_disks() {
+    local uuid
+    uuid="$(grep -Po 'archisosearchuuid=\K\S+' /proc/cmdline)" || return 0
+    lsblk -Jlpo NAME,UUID,PKNAME \
+        | jq -r --arg u "${uuid}" '.blockdevices[] | select(.uuid == $u) | .pkname // .name'
+}
+
+# Discos para instalar: tipo disk, escribibles, con tamaño, sin zram ni el
+# medio de arranque. Una línea por disco: nombre, tamaño y modelo
+# (separados por tabuladores).
+list_disks() {
+    local skip
+    skip="$(boot_disks | jq -Rsc 'split("\n") | map(select(. != ""))')"
+    lsblk -Jdpo NAME,SIZE,TYPE,RO,MODEL | jq -r --argjson skip "${skip}" '
+        .blockdevices[]
+        | select(.type == "disk" and (.ro | not) and .size != "0B"
+                 and (.name | startswith("/dev/zram") | not)
+                 and (.name | IN($skip[]) | not))
+        | [.name, .size, (.model // "")] | @tsv'
+}
+
+edit_config() {
+    local backup
+    backup="$(mktemp /tmp/settings.jsonc.XXXXXX)"
+    cp -p "${config}" "${backup}"
+    while true; do
+        nano "${config}"
+        config_ok && break
+        dlg --title "Configuración no válida" \
+            --yes-label "Volver a editar" --no-label "Deshacer cambios" --yesno \
+            "${config} no es un objeto JSON una vez quitadas las líneas que empiezan por //.\n\n\"Deshacer cambios\" restaura el fichero como estaba antes de editarlo." 11 70 \
+            && continue
+        cp -p "${backup}" "${config}"
+        break
+    done
+    rm -f "${backup}"
+}
+
+start_install() {
+    local disks=() items=() line name size model dev choice
+    if ! config_ok; then
+        dlg --title "Configuración no válida" --msgbox \
+            "${config} no es un objeto JSON una vez quitadas las líneas que empiezan por //.\n\nCorrígelo con \"Editar configuración\"." 10 70
+        return
+    fi
+
+    mapfile -t disks < <(list_disks)
+    if (( ${#disks[@]} == 0 )); then
+        dlg --title "Sin discos" --msgbox "No se ha encontrado ningún disco donde instalar." 7 60
+        return
+    fi
+    for line in "${disks[@]}"; do
+        IFS=$'\t' read -r name size model <<< "${line}"
+        items+=("${name}" "$(printf '%8s  %s' "${size}" "${model}")")
+    done
+
+    dev="$(dlg --stdout --title "Disco de destino" \
+               --ok-label "Seleccionar" --cancel-label "Volver" \
+               --menu "Elige el disco donde instalar CachyOS:" 15 70 8 "${items[@]}")" || return
+
+    # Particiones del disco (y lo que haya dentro, p. ej. un LUKS abierto),
+    # con su tipo GPT para reconocerlas (EFI System, Microsoft basic data...).
+    # Árbol en ASCII (-i) para la consola; se quita la fila del propio disco.
+    local parts
+    if lsblk -nro TYPE "${dev}" | grep -qx part; then
+        parts="$(lsblk -i -o NAME,SIZE,FSTYPE,LABEL,PARTTYPENAME "${dev}" | sed '2d')"
+    else
+        parts="(sin particiones)"
+    fi
+
+    dlg --title "Confirmar borrado" --defaultno --cr-wrap --no-collapse \
+        --yes-label "Borrar e instalar" --no-label "Cancelar" --yesno \
+"Se BORRARÁN TODOS LOS DATOS de:
+
+  ${dev}  $(lsblk -dno SIZE,MODEL "${dev}" | sed "s/^ *//")
+
+Particiones actuales:
+
+${parts}
+
+¿Continuar con la instalación?" 0 0 || return
+
+    # Un solo instalador a la vez (el menú se abre en tty1 y en cada SSH)
+    exec 9> "${lock}"
+    if ! flock -n 9; then
+        dlg --title "Instalación en curso" --msgbox \
+            "Ya hay una instalación en marcha desde otra sesión." 7 60
+        exec 9>&-
+        return
+    fi
+
+    clear
+    if ! pixmatic-install "${dev}"; then
+        # El error ya está en pantalla (y en el log); se sale a la consola
+        # con lo montado en /mnt, para depurar
+        printf '\n*** La instalación ha FALLADO. Log completo: %s\n' "${log}"
+        echo "Para volver al menú: sudo pixmatic-menu"
+        exit 1
+    fi
+    exec 9>&-
+
+    read -rp $'\nPulsa Intro para continuar. '
+    while true; do
+        choice="$(dlg --stdout --title "Instalación terminada" --no-cancel \
+                      --menu "La instalación ha terminado. Retira el medio de instalación antes de arrancar el sistema instalado." 13 64 3 \
+                      reboot   "Reiniciar" \
+                      poweroff "Apagar" \
+                      console  "Salir a la consola")" || continue   # Esc: se queda
+        case "${choice}" in
+            reboot) clear; systemctl reboot; exit 0 ;;
+            poweroff) clear; systemctl poweroff; exit 0 ;;
+            console) to_console ;;
+        esac
+    done
+}
+
+while true; do
+    choice="$(dlg --stdout --title "Instalador" --no-cancel \
+                  --menu "¿Qué quieres hacer?" 13 60 4 \
+                  install  "Iniciar instalación" \
+                  edit     "Editar configuración" \
+                  console  "Modo consola" \
+                  poweroff "Apagar equipo")" || continue   # Esc: se queda en el menú
+    case "${choice}" in
+        install) start_install ;;
+        edit) edit_config ;;
+        console) to_console ;;
+        poweroff) clear; systemctl poweroff; exit 0 ;;
+    esac
+done

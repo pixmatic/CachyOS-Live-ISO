@@ -3,8 +3,10 @@
 // build.sh lo valida y lo copia tal cual, con comentarios, a la ISO como
 // /etc/pixmatic/settings.jsonc (permisos 600), para poder editarlo en el
 // live. pixmatic-install elimina al leerlo las líneas que empiezan por //
-// (se admiten espacios delante). Uso desde el live:
-//   sudo pixmatic-install [settings.jsonc]
+// (se admiten espacios delante). Uso desde el live: el menú que se abre al
+// entrar en tty1 o por SSH (sudo pixmatic-menu) permite editarlo, elegir el
+// disco de una lista e instalar. El disco y qué hacer al terminar no se
+// configuran aquí: se eligen en el menú.
 //
 // Solo hay claves para lo que es configurable. Lo demás lo fija el script
 // según pixmatic_autoinstall/docs/decisiones.md: particionado (ESP de 2 GiB +
@@ -24,19 +26,6 @@
 // usa tal cual, así que hay que cambiarlas (p. ej. en el live) antes de
 // instalar.
 {
-    // ======================================================================
-    // Instalación
-    // ======================================================================
-
-    // Disco de destino. SE BORRA ENTERO, sin pedir confirmación.
-    // Valores: ruta de un disco (/dev/nvme0n1, /dev/sda, /dev/vda...).
-    // PENDIENTE: disco real.
-    "device": "/dev/nvme0n1",
-
-    // Qué hacer al terminar bien.
-    // Valores: "none" | "reboot" | "poweroff". Por defecto: "none".
-    "on_finish": "none",
-
     // ======================================================================
     // Usuarios
     // ======================================================================

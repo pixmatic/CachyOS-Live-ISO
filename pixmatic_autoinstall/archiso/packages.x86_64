@@ -26,10 +26,11 @@ cachyos-v4-mirrorlist
 cachyos-rate-mirrors
 
 # Instalador propio pixmatic-install: pacstrap y arch-chroot, chwd, y jq para
-# leer settings.jsonc
+# leer settings.jsonc; dialog para su menú (pixmatic-menu)
 arch-install-scripts
 chwd
 jq
+dialog
 
 # Discos y sistemas de ficheros: solo lo que usa el instalador propio (GPT con
 # sgdisk/sfdisk, ESP vfat, btrfs, LUKS2). e2fsprogs lo arrastra krb5 de todos

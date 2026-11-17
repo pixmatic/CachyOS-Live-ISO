@@ -12,13 +12,14 @@
 # Alcance de esta versión: sin escritorio, LUKS2 con contraseña vacía (se
 # abre sola al arrancar), con [chaotic-aur] y sin [omarchy], ufw sin activar.
 #
-# Uso: pixmatic-install [settings.jsonc]    ¡BORRA EL DISCO DE "device"!
-#   settings.jsonc  por defecto /etc/pixmatic/settings.jsonc, copia tal cual
-#                   de pixmatic_autoinstall/settings.jsonc (con sus
-#                   comentarios, que describen las claves, para editarlo en
-#                   el live). Se quitan las líneas que empiezan por // y el
-#                   resto tiene que ser JSON; un .json sin comentarios también
-#                   vale.
+# Uso: pixmatic-install <disco>    ¡BORRA EL DISCO sin preguntar!
+#   Lo ejecuta pixmatic-menu (el menú del live) con el disco elegido de su
+#   lista, tras confirmar el borrado; al terminar, el menú ofrece apagar,
+#   reiniciar o salir a la consola. La configuración es
+#   /etc/pixmatic/settings.jsonc, copia tal cual de
+#   pixmatic_autoinstall/settings.jsonc (con sus comentarios, que describen
+#   las claves, para editarlo en el live). Se quitan las líneas que empiezan
+#   por // y el resto tiene que ser JSON.
 #
 # Si falla, deja todo montado en /mnt (y el LUKS abierto) para depurar;
 # volver a ejecutarlo empieza de cero.
@@ -30,7 +31,9 @@ trap 'echo "ERROR: line ${LINENO}: ${BASH_COMMAND}" >&2' ERR
 
 # Lo configurable sale de settings.jsonc; lo demás (particionado, kernel,
 # bootloader, grupos, shell fish...) es fijo, según docs/decisiones.md.
-config="${1:-/etc/pixmatic/settings.jsonc}"
+(( $# == 1 )) || { echo "Usage: pixmatic-install <disk>  (normally run from pixmatic-menu)" >&2; exit 1; }
+disk="$1"
+config="/etc/pixmatic/settings.jsonc"
 [[ -r ${config} ]] || { echo "ERROR: cannot read ${config}" >&2; exit 1; }
 # Solo se quitan líneas de comentario completas, para no tocar valores que
 # contengan // (p. ej. URLs). "|| true": grep sale con 1 si no queda nada
@@ -45,8 +48,6 @@ cfg() {
         <<< "${json}"
 }
 
-disk="$(cfg device)"
-on_finish="$(cfg on_finish none)"
 hostname="$(cfg hostname)"
 locale="$(cfg locale)"
 xkbmap="$(cfg xkbmap)"
@@ -59,7 +60,6 @@ username="$(cfg user_name)"
 user_fullname="$(cfg user_fullname "")"
 user_pass="$(cfg user_pass)"
 root_pass="$(cfg root_pass)"
-[[ ${on_finish} =~ ^(none|reboot|poweroff)$ ]] || { echo "ERROR: invalid on_finish" >&2; exit 1; }
 
 mnt="/mnt"
 log="/var/log/pixmatic-install.log"   # en el live; se copia al target al final
@@ -114,11 +114,15 @@ pkgs+=("${group_pkgs[@]}")
 [[ ${ssh_server} == true ]] && pkgs+=(openssh)
 
 # [chaotic-aur] (decisiones §6): claves de firma (huellas completas,
-# verificadas en docs/auditoria-omarchy.md) y servidor para el pacstrap (el
-# live no tiene chaotic-mirrorlist; el sistema instalado usa su Include).
+# verificadas en docs/auditoria-omarchy.md) y servidores para el pacstrap (el
+# live no tiene chaotic-mirrorlist; el sistema instalado usa su Include). Los
+# del chaotic-mirrorlist del paquete (20260428-1), en su orden: geo-mirror
+# redirige a un mirror cercano y cdn-mirror queda de reserva; pacman pasa al
+# siguiente si uno falla (cdn-mirror dio 503 continuos el 2026-11-17).
 chaotic_keys=(EF925EA60F33D0CB85C44AD13056513887B78AEB   # firma chaotic-keyring
               67BF8CA6DA181643C9723B4ED6C9442437365605)  # firma el resto
-chaotic_server='https://cdn-mirror.chaotic.cx/$repo/$arch'
+chaotic_servers=('https://geo-mirror.chaotic.cx/$repo/$arch'
+                 'https://cdn-mirror.chaotic.cx/$repo/$arch')
 
 # --- Funciones ----------------------------------------------------------------
 
@@ -228,7 +232,7 @@ awk -v block="${block}" '/^\[cachyos\]$/ { printf "%s", block } { print }' \
     /etc/pacman-more.conf > "${target_conf}"
 cp "${target_conf}" "${pacconf}"
 printf '\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n' >> "${target_conf}"
-printf '\n[chaotic-aur]\nServer = %s\n' "${chaotic_server}" >> "${pacconf}"
+{ printf '\n[chaotic-aur]\n'; printf 'Server = %s\n' "${chaotic_servers[@]}"; } >> "${pacconf}"
 echo "Optimized repos: ${repos[*]}"
 
 # Microcódigo según el fabricante de la CPU (Cal §7)
@@ -240,8 +244,14 @@ step "Validating package list"
 echo "Package groups: ${groups}"
 mkdir "${work}/db"
 pacman --config "${pacconf}" --dbpath "${work}/db" -Sy
-# La lista resuelta (con dependencias) es lo que quedará instalado
-resolved=" $(pacman --config "${pacconf}" --dbpath "${work}/db" -Sp --print-format '%n' "${pkgs[@]}" | tr '\n' ' ') "
+# La lista resuelta (con dependencias) es lo que quedará instalado. Si no se
+# puede resolver, pacman explica el motivo (":: unable to satisfy dependency
+# ...") en stdout, así que se muestra la salida capturada.
+if ! resolved="$(pacman --config "${pacconf}" --dbpath "${work}/db" -Sp --print-format '%n' "${pkgs[@]}")"; then
+    printf '%s\n' "${resolved}" >&2
+    die "The package list cannot be installed from the current repos (see above); nothing has been written to ${disk}"
+fi
+resolved=" $(tr '\n' ' ' <<< "${resolved}") "
 installs() { [[ ${resolved} == *" $1 "* ]]; }
 
 # --- 3. Disco: GPT, ESP y LUKS2 (Cal §1, NCI §2, decisiones §4) ---------------
@@ -550,8 +560,3 @@ cryptsetup close "${mapper}"
 rm -rf "${work}"
 
 step "Installation finished"
-case "${on_finish}" in
-    reboot) systemctl reboot ;;
-    poweroff) systemctl poweroff ;;
-    none) echo "Remove the installation media and reboot." ;;
-esac

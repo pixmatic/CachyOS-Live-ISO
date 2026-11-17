@@ -37,6 +37,9 @@ fusionar periódicamente con upstream (`CachyOS/CachyOS-Live-ISO`).
 - `archiso/airootfs/` — ficheros que se añaden o sustituyen en el live.
 - `archiso/airootfs/usr/local/bin/pixmatic-install` — el instalador propio
   (bash, un solo fichero; primera versión de pruebas, ver `docs/fases.md`).
+- `archiso/airootfs/usr/local/bin/pixmatic-menu` — menú del live (`dialog`)
+  que se abre al entrar en tty1 o por SSH (`etc/profile.d/pixmatic-menu.sh`):
+  instalar eligiendo disco, editar `settings.jsonc`, consola o apagar.
 - `settings.jsonc` — configuración de `pixmatic-install`, comentada (todas
   sus opciones). `build.sh` lo valida y lo copia tal cual (con comentarios,
   para editarlo en el live; `pixmatic-install` quita las líneas `//` al

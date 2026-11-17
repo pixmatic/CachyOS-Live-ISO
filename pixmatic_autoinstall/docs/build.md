@@ -85,14 +85,16 @@ Mantener esta lista al día (fichero — motivo):
 
 systemd-boot sin menú (solo UEFI) → initramfs archiso (`copytoram=auto`) →
 `multi-user.target` → `pacman-init`, NetworkManager, resolved, sshd →
-autologin de `liveuser` (sudo sin contraseña) en tty1 → motd → **prompt de
-bash**. **No instala nada automáticamente.** Instalador propio (primera
-versión, de pruebas): `sudo pixmatic-install [settings.jsonc]` (por defecto
-`/etc/pixmatic/settings.jsonc`, editable en el live con sus comentarios; borra el disco de `device` sin pedir
-confirmación; contraseñas tal cual de `user_pass`/`root_pass`; log en
-`/var/log/pixmatic-install.log`, copiado también al sistema instalado). En
-una VM con virtio el disco es `/dev/vda`: copiar el fichero, cambiar
-`device` y pasarlo como argumento.
+autologin de `liveuser` (sudo sin contraseña) en tty1 → motd → **menú del
+instalador** (`pixmatic-menu`, lanzado por `/etc/profile.d/pixmatic-menu.sh`
+en tty1 y al entrar por SSH;
+[decisiones.md §10](decisiones.md#10-menú-del-live-2026-11-17)): instalar
+(elegir disco de la lista y confirmar el borrado; al terminar, reiniciar,
+apagar o consola), editar `settings.jsonc` (`/etc/pixmatic/settings.jsonc`,
+con sus comentarios), modo consola o apagar. **No instala nada sin
+confirmación.** El menú ejecuta `pixmatic-install <disco>` (contraseñas tal
+cual de `user_pass`/`root_pass`; log en `/var/log/pixmatic-install.log`,
+copiado también al sistema instalado).
 
 Detalles: teclado español en la consola del live (`vconsole.conf` del
 overlay), wifi con `nmtui`, SSH como `root` o `liveuser` sin contraseña ni
