@@ -21,9 +21,8 @@ y se anota aquí.
   `shellprocess@before` con `remove-nvidia`/`removeun`).
 - **Instalador propio, de bajo nivel** (2026-11-15), en vez de
   `cachyos-installer` headless. Calamares y `cachyos-installer` (paquete
-  `cachyos-cli-installer-new`) son solo **referencia**. Calamares no va en la
-  ISO; `cachyos-installer` sigue en ella de momento para pruebas e
-  instalaciones de referencia.
+  `cachyos-cli-installer-new`) son solo **referencia**. Ninguno va en la ISO
+  (`cachyos-installer` se quitó el 2026-11-16, al tener instalador propio).
 - **Referencia de implementación** de la integración en la ISO: rama
   `wip/quicktest-cli-intagration`.
 
@@ -32,9 +31,8 @@ y se anota aquí.
 - **Solo `linux-cachyos`** (2026-11-16), sin `-lts` ni ZFS (`remove.list`
   quita `mkinitcpio.d/linux.preset`, que apunta al `-lts`, y
   `modules-load.d/zfs.conf`). Solo herramientas de disco del instalador
-  propio (btrfs, vfat, LUKS2, gptfdisk; sin lvm2/xfsprogs/f2fs-tools/parted/zfs:
-  con `cachyos-installer` solo se puede probar btrfs/ext4) + `nvme-cli` para
-  el borrado seguro del disco al empezar la instalación. Editor: solo `nano`.
+  propio (btrfs, vfat, LUKS2, gptfdisk; sin lvm2/xfsprogs/f2fs-tools/parted/zfs)
+  + `nvme-cli` para el borrado seguro del disco (aún no se usa, §9). Editor: solo `nano`.
 - **Paquetes compilados para x86-64-v3** (2026-11-16): el `archiso/pacman.conf`
   del overlay añade `[cachyos-v3]`, `[cachyos-extra-v3]`, `[cachyos-core-v3]`
   (`mirror.cachyos.org/repo/$arch_v3`) delante de `[cachyos]`. La ISO no
@@ -50,6 +48,18 @@ y se anota aquí.
   menú. `prepare_profile.sh` no llama a `change_grub_version`; `grub` y
   `syslinux` fuera del live. `mkarchiso` genera la ESP como partición GPT
   (sirve para `dd` a USB).
+- **Teclado español en la consola del live** (2026-11-16): `vconsole.conf`
+  con `KEYMAP=es` en el overlay (upstream no trae ninguno: era `us`). El
+  initramfs de archiso no lleva hook de teclado; lo aplica
+  `systemd-vconsole-setup` al arrancar el sistema.
+- **SSH al live sin contraseña ni claves**, como `root` y `liveuser`
+  (2026-11-16), para depurar instalaciones en VM:
+  `airootfs/etc/ssh/sshd_config.d/20-pixmatic.conf` con `PermitRootLogin
+  yes`, `PasswordAuthentication yes` (ya en `10-archiso.conf` de upstream) y
+  `PermitEmptyPasswords yes`. Las dos cuentas ya tienen la contraseña vacía en
+  el `shadow` de upstream; sshd usa `UsePAM no`, así que entra sin preguntar
+  (comprobado con `sshd -T`). **Riesgo**: cualquiera en la red del live entra
+  como root. Solo afecta al live, no al sistema instalado.
 - `packages.x86_64` propio (~50 paquetes), sin Plasma, Calamares, herramientas
   de VM ni de rescate; sin `cachyos-hooks` ni `cachyos-settings` (verificar en
   la prueba que no hacían falta). `default.target` → `multi-user.target`.
@@ -89,7 +99,8 @@ Cierran los puntos de decisión de
 - `HOOKS` con `keyboard` **antes de `autodetect`** (como NCI): módulos de todos
   los teclados para escribir la frase de LUKS con cualquiera.
 - Plymouth **como Calamares**: `UseSimpledrm=1` en un drop-in de
-  `/etc/plymouth/plymouthd.conf.d/` (sin tocar el fichero del paquete) y
+  `/etc/plymouth/plymouthd.conf.d/` (sin tocar el fichero del paquete; **no
+  es posible**, ver §9) y
   `HOOKS` **sin `kms`**. Resultado previsto: `base systemd keyboard autodetect
   microcode modconf block sd-vconsole plymouth sd-encrypt filesystems` (orden
   exacto a confirmar al escribir el drop-in).
@@ -133,9 +144,9 @@ Cierran los puntos de decisión de
   - Descartados: `systemd.mount-extra=` (montajes en la cmdline, que crece y
     obliga a regenerar entradas) y subvolúmenes anidados en `@` (no necesitan
     montaje, pero un rollback deja fuera `/home`, `/var/log`…).
-  - **Pendiente**: quitar `root=` de las entradas de systemd-boot
-    (`sdboot-manage gen` añade `root=UUID=…`; alternativa: `kernel-install` +
-    `/etc/kernel/cmdline`, el camino nativo de `bootctl`).
+  - Entradas de systemd-boot sin `root=`: las escribe el instalador desde
+    `/etc/kernel/cmdline`, porque `systemd-boot-manager` 21 añade
+    `root=UUID=…` (§9).
 
 ## 5. Paquetes: un único `pacstrap`
 
@@ -156,8 +167,9 @@ Cierran los puntos de decisión de
   `.pacnew` de Calamares): `pacman.conf` (con `-C` y copiado al final),
   `/etc/vconsole.conf`, `HOOKS` en un drop-in de `/etc/mkinitcpio.conf.d/`
   (no se edita `mkinitcpio.conf`, que es del paquete; desviación deliberada
-  respecto a ambos oficiales), `/etc/kernel/cmdline` y, si hace falta,
-  `/etc/crypttab.initramfs`.
+  respecto a ambos oficiales), `/etc/kernel/cmdline` y la línea de
+  `/etc/crypttab` (el del paquete queda como `.pacnew` y se recupera después,
+  §9).
 - **Pasos aparte**, solo donde hay dependencia real: `chwd -a` (detecta el
   hardware desde el target y usa su propio pacman; puede añadir NVIDIA y
   regenerar el initramfs); bootloader (`bootctl install`, entradas y, si se
@@ -230,7 +242,13 @@ añade estos repos.
   optimizados y abortando si falla. SDDM con `systemctl enable sddm`, sin el
   `/etc/sddm.conf` inútil de Calamares ni el `ly@tty2.service` roto de
   `dmcheck`. Los dotfiles llegan por `useradd -m`. Se corrige lo que tienen
-  mal ambos oficiales: Hyprland sin `kb_layout` (queda en `us`). Los ficheros
+  mal ambos oficiales: Hyprland sin `kb_layout` (queda en `us`); tras
+  `useradd -m`, `pixmatic-install` añade al final de
+  `~/.config/hypr/hyprland.lua` del usuario `hl.config({ input = { kb_layout
+  = "<xkbmap>" } })` (2026-11-16). Un `hl.config` posterior solo cambia las
+  claves que nombra (así funcionan los overrides de usuario de Omarchy,
+  `omarchy:config/hypr/input.lua`); `inputs.lua` de `cachyos-hypr-noctalia`
+  `1.2.6` solo fija `accel_profile`. No se toca `/etc/skel` (es del paquete). Los ficheros
   del greeter noctalia (`allow_empty_password = true`) llegan con el paquete
   pero no se usan con SDDM.
 - **Omarchy no se aplica** (2026-11-16). Solo se toman **(a) aplicaciones**
@@ -257,18 +275,173 @@ añade estos repos.
 
 ## 8. Configuración del instalador (`settings.jsonc`)
 
-- La configuración del instalador propio va en el **mismo
-  `pixmatic_autoinstall/settings.jsonc`** (2026-11-16), con su estilo: todas
-  las opciones presentes y comentadas. Nombres de clave por decidir en la
-  Fase 4. Tendrá al menos:
+- La configuración del instalador propio va en
+  **`pixmatic_autoinstall/settings.jsonc`** (2026-11-16), con su estilo: todas
+  las opciones presentes y las no usadas comentadas con descripción, valores
+  y valor por defecto. Tendrá al menos:
   - una clave para **activar/desactivar la personalización «omarchy»**
     (opcional; desactivada = Hyprland de CachyOS tal cual);
   - una clave con **qué aplicaciones y temas de Omarchy se insertan**:
     **todas** las aplicaciones de `install/omarchy-base.packages` del tag
     auditado y **todos** los temas de `themes/` (24 en `v4.5.0`),
     **comentados**; se activan descomentando;
-  - una clave con **programas adicionales** (de momento vacía).
-- `cachyos-installer` rechaza claves desconocidas: mientras siga en la ISO,
-  nuestras claves deben ir separadas (prefijo u objeto propio que `build.sh`
-  quite al generar el JSON para `cachyos-installer`). Forma por decidir en la
-  Fase 4.
+  - una clave con **programas adicionales** (`extra_packages`, vacía).
+- **Esquema propio, sin `cachyos-installer`** (2026-11-16): al quitarlo de la
+  ISO, el fichero deja de seguir su formato. Se conservan sus nombres para
+  `device`, `hostname`, `locale`, `xkbmap`, `timezone`, `user_name`,
+  `user_pass` y `root_pass`, y se quitan las claves que no aplican porque el
+  script fija esos valores según este documento (modos de instalación,
+  particionado y sistema de ficheros, `hw_clock`, `user_shell`,
+  `user_groups`, kernel, bootloader, `os_prober`, escritorio y `netinstall`
+  con su formato, perfiles de servidor, `post_install`, `chwd`, `hostcache`,
+  `carry_network`) y los alias.
+- Claves nuevas: `on_finish`
+  (`none`/`reboot`/`poweroff`), `console_keymap` (por defecto, `xkbmap`),
+  `firewall` (ufw; `false` por ahora), `user_fullname` (GECOS),
+  `extra_packages` y `additional_packages`. La clave `confirm` (pedir
+  escribir YES antes de borrar el disco) se quitó el 2026-11-17: el
+  instalador no hace ninguna pregunta.
+- `ssh_server` (2026-11-17, desviación deliberada para depurar; los
+  oficiales no activan sshd): instala `openssh` si falta, escribe
+  `/etc/ssh/sshd_config.d/20-pixmatic.conf` (`PermitRootLogin yes`,
+  `PasswordAuthentication yes`) y activa `sshd.service`. Acceso con usuario y
+  contraseña, también root. `true` en el `settings.jsonc` del repo mientras
+  se depura en VM. Con `firewall: true` ufw bloquearía el puerto 22.
+- **`additional_packages`** (2026-11-16): árbol con los grupos de netinstall
+  de Calamares (`netinstall.yaml` de `cachyos-staging`), grupo → (subgrupo →)
+  paquete: `true`/`false`, como se marcan en Calamares. Se instalan los
+  paquetes a `true`, dentro del `pacstrap` único; un grupo comentado no se
+  instala. Las listas viven en `settings.jsonc` (el script no las repite) y
+  se pueden ampliar.
+  - **Grupo marcado sin ningún paquete**: en Calamares no existe; el estado
+    de un grupo se deriva de sus hijos y, al desmarcar todos, el grupo se
+    desmarca solo (`src/modules/netinstall/PackageTreeItem.cpp:210-238`), y
+    la instalación solo recoge paquetes marcados
+    (`PackageModel.cpp:344-365`), sin otro efecto. Aquí, un grupo con todos
+    a `false` no instala nada: mismo resultado.
+  - Valores del fichero: preseleccionados en Calamares, a `true` y enteros
+    (con sus paquetes gráficos, por fidelidad): *CachyOS Packages*, *CachyOS
+    shell configuration*, *Base-devel + Common packages* (por subgrupos) y
+    *Plymouth*. Opcionales sin escritorio, a `false` y sin sus paquetes
+    gráficos: *Printing-Support* (sin `system-config-printer`) y *Support
+    for HP Printer/Scanner* (sin `python-pyqt5`, que solo usa la interfaz
+    gráfica de `hplip`). De escritorio, **activos** (2026-11-17; antes comentados): *Firefox
+    and language package* e *Hyprland* (paquetes, SDDM y teclado; aplicaciones
+    y tema de Omarchy, Fase 3).
+    Fuera el resto de escritorios y *Accessibility Tools* (`orca`,
+    `mousetweaks`). *CachyOS required* sigue fijo (ya está en la lista de
+    `pacstrap.conf`).
+  - Con Firefox activo, la instalación por defecto instala `firefox` y
+    `firefox-i18n-es-es`, como Calamares (grupo preseleccionado no crítico).
+    Comentarlo es una desviación.
+  - Dependencias de lo fijo: sin `cachyos-fish-config` se instala `fish`
+    suelto (shell del usuario); con `firewall: true` se añade `ufw`. Como
+    Calamares mira lo instalado, el script usa la lista resuelta por
+    `pacman -Sp` (con dependencias): el hook `plymouth` y `plymouthd.conf`
+    solo si se instala `plymouth` (aunque llegue como dependencia de un
+    tema), y `Theme=` solo si se instala el paquete del tema. Los servicios
+    (incluido `cups.service`) se activan solo si su unidad está instalada; la
+    copia de conexiones de NetworkManager, solo si está NetworkManager.
+- La sección de claves futuras va antes de la última sección para que el
+  objeto lo cierre una clave activa sin coma: descomentar una clave no
+  obliga a tocar comas.
+- `build.sh` copia `settings.jsonc` tal cual, con comentarios, a
+  `/etc/pixmatic/settings.jsonc` (600), para que al editarlo en el live se
+  vean las descripciones (2026-11-16; antes generaba un `settings.json` sin
+  comentarios). `pixmatic-install` quita las líneas `//` al leerlo y lo lee
+  con `jq`; `build.sh` lo valida igual para no generar una ISO con un fichero
+  roto. Las claves sin valor por defecto son obligatorias.
+- **Shell fija: fish** (2026-11-16).
+
+## 9. Primera versión del instalador (2026-11-16)
+
+`archiso/airootfs/usr/local/bin/pixmatic-install`: un solo script bash que
+sigue el orden de §5. Lo que concreta o cambia respecto a lo anterior:
+
+- **Alcance**: sin escritorio, con `[chaotic-aur]` y sin `[omarchy]`,
+  ejecución manual (el servicio de arranque y la salvaguarda siguen
+  pendientes en la Fase 4). Configuración desde `settings.jsonc` (§8).
+  **Sin preguntas** (2026-11-17): no pide confirmación antes de borrar el
+  disco y `user_pass`/`root_pass` (obligatorias) se usan tal cual, aunque
+  sean `CHANGEME` o vacías (antes se preguntaba la del usuario y root
+  reutilizaba la suya, como `doReusePassword` de Calamares). Copia su log a `/var/log/pixmatic-install.log` del target
+  (resto deliberado mientras se depura).
+- **LUKS2 con contraseña vacía**: `luksFormat` con un keyfile de 0 bytes
+  (probado con cryptsetup 2.8.8: formatea y abre). Para que el initramfs la
+  pruebe sin preguntar hace falta `try-empty-password=yes`, y
+  **`systemd-gpt-auto-generator` no lee `rd.luks.options=`** (systemd `v262`,
+  `src/gpt-auto-generator/gpt-auto-generator.c:79-139`: sus opciones son solo
+  `read-only` y `tpm2-*`). Se usa una línea de `/etc/crypttab`,
+  `root /dev/gpt-auto-root-luks none try-empty-password=yes,x-initrd.attach`
+  (mkinitcpio 42 avisa de que `crypttab.initramfs` está obsoleto; su
+  `sd-encrypt` copia al initramfs las líneas con `x-initrd.attach`; cambio del
+  2026-11-17 tras la prueba en VM). Se escribe antes del `pacstrap` y el
+  `/etc/crypttab` del paquete `filesystem` queda como `.pacnew`, que luego lo
+  sustituye con la línea al final (mismo initramfs, generado una vez). Genera la misma
+  unidad `systemd-cryptsetup@root.service`, y como gpt-auto escribe la suya en
+  el directorio *late* de los generadores, prevalece la de `crypttab`. Sin
+  UUID, y la Fase 5 añadirá ahí `tpm2-device=auto`. Responde a la pregunta
+  abierta de la Fase 5.
+- **Plymouth no lee drop-ins** (`plymouthd` 26 solo busca
+  `/etc/plymouth/plymouthd.conf` y `plymouthd.defaults`): el drop-in de §3 no
+  es posible. Se escribe `/etc/plymouth/plymouthd.conf` (`Theme=` +
+  `UseSimpledrm=1`) **antes del `pacstrap`**, para que el initramfs salga con
+  el tema a la primera; pacman deja el del paquete (solo comentarios, en
+  `backup`) como `.pacnew`, que se borra. Tema `cachyos-bootanimation`, o
+  `cachyos` si `chwd --check amd` (como `plymouthcfg`).
+- **`HOOKS`** en `/etc/mkinitcpio.conf.d/90-pixmatic.conf` (orden de §3).
+- **`noatime` en cada montaje**: es una opción del VFS por punto de montaje,
+  no del btrfs entero, así que las unidades `.mount` llevan
+  `Options=subvol=@x,noatime,compress=zstd:1` (como cada línea del `fstab` de
+  Calamares). La raíz recibe lo mismo por `rootflags=`.
+- **`/etc/kernel/cmdline`**: `rw rootflags=noatime,compress=zstd:1
+  zswap.enabled=0`.
+- **`/` monta con `nodev`** (visto en la VM, 2026-11-17) sin pedirlo: lo
+  pone `systemd-gpt-auto-generator` (la cadena está en su binario, no en su
+  manual; sin confirmar en el código). Solo impide usar nodos de dispositivo
+  guardados en la raíz; `/dev` es devtmpfs aparte. Se acepta como
+  comportamiento de gpt-auto.
+- **Entradas de systemd-boot escritas por el instalador** (2026-11-17, tras
+  la prueba en VM). Se auditó `sdboot-manage` de PKGBUILDS `master`
+  (`systemd-boot-manager` **24**, que usa `/etc/kernel/cmdline` +
+  `LINUX_OPTIONS` y no añade `root=`, `sdboot-manage:298-307`), pero el repo
+  `cachyos` sirve la **21** (2026-11-17), que no lee `/etc/kernel/cmdline` y
+  construye `root=UUID=… rw rootflags=subvol=/@ cryptdevice=UUID=…:root` +
+  `LINUX_OPTIONS` a partir de `findmnt /`. Efecto observado en la VM: `/` sin
+  `noatime`, **btrfs sin compresión** (`compress` es de todo el sistema de
+  ficheros y lo fija el montaje de `/`), sin `zswap.enabled=0`, y
+  `subvol=/@` fijo, que anula `snapper rollback`. Los sistemas de Calamares
+  tienen hoy el mismo problema (su `/etc/kernel/cmdline` también se ignora).
+  Solución: el instalador escribe una entrada por `/boot/vmlinuz-*` como lo
+  hace la 24 (`title`, `options` = `/etc/kernel/cmdline` + `LINUX_OPTIONS` de
+  `/etc/sdboot-manage.conf`, `linux`, `initrd`) y deja
+  `/etc/sdboot-manage.conf.d/90-pixmatic.conf` con `OVERWRITE_EXISTING="no"`
+  para que el hook de `systemd-boot-manager` (al actualizar el kernel) no la
+  sobrescriba; las rutas no cambian. Un kernel instalado después tendría
+  entrada al estilo de la 21. **Quitar el apaño cuando el repo sirva la 24**
+  (vigilar `pacman -Si systemd-boot-manager`).
+- **ufw instalado pero desactivado por ahora** (decisión del usuario,
+  2026-11-16; desviación respecto a ambos oficiales, que lo activan): clave
+  `firewall: false`. Con `true`: `systemctl enable ufw` + `ENABLED=yes` en
+  `/etc/ufw/ufw.conf` (las políticas por defecto del paquete ya son *deny
+  incoming* / *allow outgoing*), en vez de `ufw enable` en el chroot, que
+  cargaría las reglas en el kernel del live y cortaría el SSH (hallazgo 8 de
+  Calamares).
+- **Conexiones de NetworkManager del live** copiadas al sistema instalado
+  sin pisar las existentes y con `permissions=user:liveuser:;` cambiado al
+  usuario, como Calamares (Cal §22).
+- **`[chaotic-aur]`** como en §6: claves `--recv-keys` + `--lsign-key` en el
+  live; al final del `pacman.conf`; el `pacstrap` usa `Server =
+  https://cdn-mirror.chaotic.cx/$repo/$arch` y el sistema instalado
+  `Include = /etc/pacman.d/chaotic-mirrorlist`; `chaotic-keyring` y
+  `chaotic-mirrorlist` en el `pacstrap`.
+- Se replica de Calamares: paquetes (sus listas sin `-lts`, con `os-prober`,
+  `firefox-i18n-es-es` y el resto de grupos preseleccionados; + `snapper` y
+  `btrfs-assistant` de NCI), `/root` 0750, grupo `nopasswdlogin`,
+  `vconsole.conf` y `00-keyboard.conf`, bloque de `locale.gen` con `en_US`,
+  `locale.conf`, `hosts`, `sudoers.d/10-installer`, `loader.conf`, servicios.
+- Se omite (NCI, o sin efecto): `/etc/timezone`, `/etc/default/{keyboard,locale}`,
+  semillas de `random-seed` (las crea systemd), copia de `resolv.conf`.
+- Borrado del disco: `wipefs` + `blkdiscard` (si el disco lo admite) +
+  `sgdisk --zap-all`. **Sin borrado seguro con `nvme-cli` por ahora**
+  (decisión del usuario, 2026-11-16); el paquete sigue en el live.

@@ -35,11 +35,12 @@ fusionar periódicamente con upstream (`CachyOS/CachyOS-Live-ISO`).
 - `pacman.conf.upstream` — copia de referencia de `archiso/pacman.conf` de
   upstream. Si upstream lo cambia, `build.sh` se detiene y muestra el diff.
 - `archiso/airootfs/` — ficheros que se añaden o sustituyen en el live.
-- `settings.jsonc` — configuración de `cachyos-installer`, comentada (todas sus
-  claves). Ya no es el mecanismo de instalación: se conserva para probar la ISO
-  y hacer instalaciones de referencia con las que comparar. `build.sh` quita las
-  líneas `//`, valida el JSON y lo instala en la ISO como
-  `/etc/pixmatic/settings.json` (permisos 600).
+- `archiso/airootfs/usr/local/bin/pixmatic-install` — el instalador propio
+  (bash, un solo fichero; primera versión de pruebas, ver `docs/fases.md`).
+- `settings.jsonc` — configuración de `pixmatic-install`, comentada (todas
+  sus opciones). `build.sh` lo valida y lo copia tal cual (con comentarios,
+  para editarlo en el live; `pixmatic-install` quita las líneas `//` al
+  leerlo) a la ISO como `/etc/pixmatic/settings.jsonc` (permisos 600).
 - `remove.list` — rutas del perfil de upstream que se eliminan de la copia.
 - `profiledef.append.sh` — ajustes que se añaden al final de `profiledef.sh`.
 - `docs/` — auditorías de los instaladores oficiales, comparaciones,

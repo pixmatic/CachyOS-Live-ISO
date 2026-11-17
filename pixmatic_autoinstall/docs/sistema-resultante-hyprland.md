@@ -57,7 +57,7 @@ comparación.
 | Disco | GPT: ESP de 2 GiB (`C12A7328…`) en `/boot` sin cifrar; raíz con tipo **x86-64 root** `4F68BCE3…` y LUKS2. |
 | Cifrado | LUKS2; desbloqueo en el initrd por gpt-auto (`gpt-auto-root-luks` → `/dev/mapper/root`). Fase 5: TPM2. |
 | btrfs | `@` como subvolumen por defecto (`set-default`); resto de subvolúmenes planos (hermanos de `@`) montados con **unidades `.mount`** en `/etc/systemd/system/` (`What=/dev/gpt-auto-root`, `Options=subvol=@x`). **Sin `/etc/fstab`**. `/tmp` por `tmp.mount`. |
-| cmdline | `/etc/kernel/cmdline` sin `root=` ni `subvol=`; `rootflags=noatime,compress=zstd:1` y sin duplicados. (Pendiente: quitar el `root=` que añade `sdboot-manage`.) |
+| cmdline | `/etc/kernel/cmdline` sin `root=` ni `subvol=`; `rootflags=noatime,compress=zstd:1` y sin duplicados. Entrada escrita por el instalador: `systemd-boot-manager` 21 ignora `/etc/kernel/cmdline` (decisiones §9). |
 | Paquetes | **Un único `pacstrap`**: base + `linux-cachyos` (+ headers, sin `-lts`) + conjunto oficial de Calamares + `snapper` y `btrfs-assistant` (de NCI). Caché vacía al terminar, sin `.pacnew`. |
 | Repos | `pacman.conf` de Calamares: repos optimizados (`-v3`/`-v4`/`znver4` según CPU) y `SigLevel` global, sin `Optional TrustAll`. |
 | initramfs | `HOOKS` en un drop-in de `/etc/mkinitcpio.conf.d/` (systemd, `sd-vconsole`, `plymouth`, `sd-encrypt`), generado una sola vez. |
@@ -157,7 +157,7 @@ Con eso:
 
 - el desbloqueo pasa a `encrypt` + `cryptdevice=` en la cmdline, y **se
   pierden gpt-auto y `sd-encrypt`** (y con ellos el TPM2 de la Fase 5 con
-  `crypttab.initramfs`);
+  `/etc/crypttab` con `x-initrd.attach`);
 - nuestro drop-in de `HOOKS` solo gana si se ordena **después** de todos los
   de Omarchy: nombre que empiece por letra mayor que `t` (p. ej.
   `zz-pixmatic-hooks.conf`), no `90-…`.
@@ -287,7 +287,8 @@ que Hyprland queda en `es` sin más), usuario creado tras los paquetes
 
 ## Pendiente de verificar en VM
 
-- A: dónde fijar `kb_layout` en la config Lua de `cachyos-hypr-noctalia`.
+- A: que el `hl.config({ input = { kb_layout = ... } })` añadido al final
+  de `~/.config/hypr/hyprland.lua` deja Hyprland en `es` (decisiones §7).
 - B: que `omarchy-apply-system` y `omarchy-provision-user` terminan bien
   sobre CachyOS (sin `linux-omarchy`, con fish).
 - B: sonames de `hyprutils`/`aquamarine` de CachyOS frente al Hyprland de

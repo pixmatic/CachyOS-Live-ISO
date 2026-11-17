@@ -1,293 +1,341 @@
-// Configuración de cachyos-installer para la ISO pixmatic.
+// Configuración de pixmatic-install, el instalador propio de la ISO pixmatic.
 //
-// build.sh elimina las líneas que empiezan por // (se admiten espacios
-// delante), valida el resultado y lo deja en la ISO como
-// /etc/pixmatic/settings.json (permisos 600). Uso manual desde el live:
-//   sudo cachyos-installer --config /etc/pixmatic/settings.json
+// build.sh lo valida y lo copia tal cual, con comentarios, a la ISO como
+// /etc/pixmatic/settings.jsonc (permisos 600), para poder editarlo en el
+// live. pixmatic-install elimina al leerlo las líneas que empiezan por //
+// (se admiten espacios delante). Uso desde el live:
+//   sudo pixmatic-install [settings.jsonc]
+//
+// Solo hay claves para lo que es configurable. Lo demás lo fija el script
+// según pixmatic_autoinstall/docs/decisiones.md: particionado (ESP de 2 GiB +
+// LUKS2 + btrfs con subvolúmenes), linux-cachyos, systemd-boot, paquetes de
+// Calamares, grupos del usuario, shell fish, reloj en UTC, chwd...
 //
 // Reglas de edición:
+//  - Todas las opciones presentes; las no usadas, comentadas en su sitio con
+//    descripción, valores y valor por defecto (comentar, no borrar).
 //  - Solo comentarios de línea completa: nunca // al final de una línea.
 //  - JSON estricto: sin coma tras el último elemento de un objeto o array.
-//  - El instalador rechaza claves desconocidas y valores fuera de lista.
-//  - Para activar una opción comentada basta con quitarle el //.
-//  - Un alias y su clave principal no pueden aparecer a la vez.
+//  - Las claves marcadas "NO IMPLEMENTADA" son de fases futuras: el script
+//    aún no las lee.
 //
-// Valores sacados del código de https://github.com/CachyOS/New-Cli-Installer
-// (commit a257be6, 2026-11-10). La ISO trae el paquete
-// cachyos-cli-installer-new, que puede ir por detrás de git: si rechaza alguna
-// clave o valor, comprobar la versión empaquetada.
-//
-// CONTRASEÑAS: el repo es público. user_pass, root_pass y zfs_passphrase
-// llevan CHANGEME hasta que definamos cómo inyectar secretos en la build.
+// CONTRASEÑAS: el repo es público. user_pass y root_pass llevan CHANGEME
+// hasta que definamos cómo inyectar secretos en la build; el instalador las
+// usa tal cual, así que hay que cambiarlas (p. ej. en el live) antes de
+// instalar.
 {
-    // Reservada; el instalador la acepta pero no la usa.
-    // Valores: cualquier número.
-    // "config_version": 1,
-
     // ======================================================================
-    // Modo de instalación
+    // Instalación
     // ======================================================================
 
-    // Tipo de instalación. Obligatorio este o "menus", nunca ambos.
-    // Valores: "simple" (asistente automático) | "advanced" (menús manuales).
-    "install_type": "simple",
-    // Equivalente numérico de install_type.
-    // Valores: 1 (simple) | 2 (avanzada) | otro número (se pregunta al usuario).
-    // "menus": 1,
-
-    // Instalación desatendida: no pregunta nada y aborta si falta algo.
-    // Exige: device, fs_name, partitions (salvo allow_auto_partition),
-    // user_name, user_pass, root_pass y desktop (o server_profile).
-    // Valores: true | false. Por defecto: false.
-    "headless_mode": true,
-
-    // ======================================================================
-    // Disco y particiones
-    // ======================================================================
-
-    // Disco de destino. SE BORRA ENTERO.
-    // Valores: ruta de dispositivo de bloque (/dev/nvme0n1, /dev/sda, /dev/vda...).
+    // Disco de destino. SE BORRA ENTERO, sin pedir confirmación.
+    // Valores: ruta de un disco (/dev/nvme0n1, /dev/sda, /dev/vda...).
     // PENDIENTE: disco real.
     "device": "/dev/nvme0n1",
 
-    // Con true y "partitions" vacío, el instalador borra el disco y decide él
-    // el particionado. Con false, "partitions" es obligatorio.
-    // Valores: true | false. Por defecto: false.
-    "allow_auto_partition": false,
-
-    // Sistema de ficheros de la raíz (lo heredan las particiones root que no
-    // indiquen el suyo).
-    // Valores: "ext4" | "btrfs" | "xfs" | "f2fs" | "zfs".
-    "fs_name": "btrfs",
-
-    // Subvolúmenes btrfs (error si la raíz no es btrfs).
-    // Valores: "default" | array de {"subvolume", "mountpoint"}.
-    // "default" crea /@, /@home, /@root, /@srv, /@cache, /@tmp y /@log.
-    "subvolumes": "default",
-    // Alternativa: layout propio (borrar la línea "default" anterior).
-    // "subvolumes": [
-    //     {"subvolume": "/@", "mountpoint": "/"},
-    //     {"subvolume": "/@home", "mountpoint": "/home"},
-    //     {"subvolume": "/@snapshots", "mountpoint": "/.snapshots"}
-    // ],
-
-    // Opciones de montaje de la raíz.
-    // Valores: opciones de mount separadas por comas.
-    // Por defecto: automáticas según el sistema de ficheros y si el disco es
-    // SSD (recomendado no fijarlas).
-    // "mount_opts": "noatime,compress=zstd",
-
-    // Contraseña de cifrado nativo de ZFS (error si la raíz no es zfs).
-    // Valores: texto plano.
-    // "zfs_passphrase": "CHANGEME",
-
-    // Particiones a crear, en orden. Campos de cada una:
-    //   name:       dispositivo resultante; debe cuadrar con "device"
-    //               (nvme0n1 -> nvme0n1p1, sda -> sda1, vda -> vda1).
-    //   mountpoint: punto de montaje. No puede repetirse.
-    //   size:       tamaño en bytes con sufijo ("512M", "2G", "100G") o
-    //               "100%" para el resto del disco. Otros porcentajes no
-    //               se admiten.
-    //   type:       "boot" | "root" | "additional". Exactamente una root;
-    //               en UEFI exactamente una boot (en BIOS, como mucho una).
-    //   fs_name:    "ext4" | "btrfs" | "xfs" | "f2fs" | "zfs" | "vfat"
-    //               ("fat32", "fat16" equivalen a vfat) | "swap".
-    //               Obligatorio salvo en root (hereda el global).
-    "partitions": [
-        {
-            "name": "/dev/nvme0n1p1",
-            "mountpoint": "/boot",
-            "size": "2G",
-            "fs_name": "vfat",
-            "type": "boot"
-        },
-        // Ejemplo de partición adicional; ajustar numeración y tamaño.
-        // {
-        //     "name": "/dev/nvme0n1p3",
-        //     "mountpoint": "/data",
-        //     "size": "100G",
-        //     "fs_name": "ext4",
-        //     "type": "additional"
-        // },
-        {
-            "name": "/dev/nvme0n1p2",
-            "mountpoint": "/",
-            "size": "100%",
-            "type": "root"
-        }
-    ],
-
-    // Cifra la partición swap (solo si hay una con fs_name "swap").
-    // Valores: true | false. Por defecto: false.
-    "encrypt_swap": false,
-
-    // ======================================================================
-    // Sistema
-    // ======================================================================
-
-    // Nombre de la máquina (/etc/hostname).
-    // Valores: hasta 64 caracteres; etiquetas separadas por "." de 1-63
-    // caracteres A-Z, a-z, 0-9 y "-" (sin "-" al principio ni al final).
-    // Por defecto: "cachyos". PENDIENTE.
-    "hostname": "pixmatic",
-
-    // Locale del sistema. Se activa en /etc/locale.gen, se ejecuta
-    // locale-gen y se usa para LANG y TODAS las LC_* de /etc/locale.conf
-    // (no admite combinar varios).
-    // Valores: una entrada de /etc/locale.gen sin el charset final
-    // ("es_ES.UTF-8", "en_US.UTF-8"...). Por defecto: "en_US.UTF-8".
-    "locale": "es_ES.UTF-8",
-
-    // Distribución de teclado del entorno gráfico
-    // (/etc/X11/xorg.conf.d/00-keyboard.conf). NO configura el teclado de
-    // la consola (/etc/vconsole.conf): en headless no hay clave para eso.
-    // Valores: los de "localectl list-x11-keymap-layouts" ("es", "us",
-    // "latam"...). Por defecto: "us".
-    "xkbmap": "es",
-    // Alias de xkbmap.
-    // "keymap": "es",
-
-    // Zona horaria (/etc/localtime).
-    // Valores: los de "timedatectl list-timezones" ("Europe/Madrid"...).
-    // Por defecto: "UTC".
-    "timezone": "Europe/Madrid",
-
-    // Cómo guarda la hora el reloj de la placa.
-    // Valores: "utc" | "localtime" ("localtime" solo si convive con Windows).
-    "hw_clock": "utc",
+    // Qué hacer al terminar bien.
+    // Valores: "none" | "reboot" | "poweroff". Por defecto: "none".
+    "on_finish": "none",
 
     // ======================================================================
     // Usuarios
     // ======================================================================
 
-    // Usuario a crear.
-    // Valores: hasta 32 caracteres; empieza por a-z o "_", sigue con a-z,
-    // 0-9, "_" o "-" (y opcionalmente "$" final). Prohibidos los nombres de
-    // sistema (root, bin, daemon, mail, ftp, http, nobody...). PENDIENTE.
+    // Usuario a crear (shell fish, grupos de Calamares).
+    // Valores: empieza por a-z o "_", sigue con a-z, 0-9, "_" o "-"; hasta
+    // 32 caracteres. PENDIENTE.
     "user_name": "pixmatic",
-    // Alias de user_name.
-    // "username": "pixmatic",
 
-    // Contraseña del usuario.
+    // Nombre completo del usuario (campo GECOS).
+    // Valores: texto. Por defecto: vacío.
+    // "user_fullname": "Pixmatic",
+
+    // Contraseña del usuario. Se usa tal cual (no se pregunta).
     // Valores: texto plano.
-    "user_pass": "CHANGEME",
-    // Alias de user_pass.
-    // "user_password": "CHANGEME",
+    "user_pass": "a",
 
-    // Shell del usuario. Con zsh o fish instala además su configuración de
-    // CachyOS (cachyos-zsh-config / cachyos-fish-config).
-    // Valores: "/bin/bash" | "/usr/bin/zsh" | "/usr/bin/fish".
-    // Por defecto: "/bin/bash".
-    "user_shell": "/bin/bash",
-
-    // Grupos secundarios del usuario. Si se define, SUSTITUYE a la lista por
-    // defecto (no la amplía).
-    // Valores: array de grupos existentes en el sistema instalado.
-    // Por defecto (la que aparece aquí): wheel, rfkill, sys, users, lp,
-    // video, network, storage, audio.
-    "user_groups": ["wheel", "rfkill", "sys", "users", "lp", "video", "network", "storage", "audio"],
-
-    // Contraseña de root.
+    // Contraseña de root. Se usa tal cual (no se pregunta).
     // Valores: texto plano.
-    "root_pass": "CHANGEME",
-    // Alias de root_pass.
-    // "root_password": "CHANGEME",
+    "root_pass": "a",
 
     // ======================================================================
-    // Paquetes y arranque
+    // Fases futuras (NO IMPLEMENTADAS)
+    // (Antes de la sección Sistema para que su última clave, sin coma,
+    // cierre el objeto: al descomentar una de estas no hay que tocar comas.)
     // ======================================================================
 
-    // Kernel(s) a instalar, separados por espacio.
-    // Valores: "linux-cachyos" | "linux-cachyos-server" | "linux-cachyos-eevdf"
-    // | "linux-cachyos-bore" | "linux-cachyos-hardened" | "linux-cachyos-lts"
-    // | "linux-cachyos-rc" | "linux-cachyos-rt-bore".
-    // Por defecto: "linux-cachyos" (con server_profile: "linux-cachyos-server").
-    "kernel": "linux-cachyos",
+    // NO IMPLEMENTADA (Fase 3). Escritorio.
+    // Valores: "none" | "hyprland". Por defecto: "none".
+    // "desktop": "hyprland",
 
-    // Gestor de arranque.
-    // Valores: UEFI: "grub" | "systemd-boot" | "refind" | "limine".
-    //          BIOS: solo "grub".
-    // Por defecto: "grub". PENDIENTE.
-    "bootloader": "systemd-boot",
+    // NO IMPLEMENTADA (Fases 3-4). Personalización tomada de Omarchy (sin
+    // aplicar Omarchy): aplicaciones y tema visual. Las listas tendrán
+    // todas las aplicaciones de install/omarchy-base.packages y todos los
+    // temas de themes/, comentados.
+    // "omarchy": {
+    //     "enabled": false,
+    //     "packages": [],
+    //     "theme": "tokyo-night"
+    // },
 
-    // Que GRUB detecte otros sistemas instalados.
-    // Valores: true | false. Por defecto: true.
-    // Disco dedicado: no hay otros sistemas que detectar.
-    "os_prober": false,
+    // NO IMPLEMENTADA (Fase 5). Cifrado: hoy LUKS2 con contraseña vacía.
+    // "luks": {
+    //     "tpm2": true,
+    //     "recovery_key": "show"
+    // },
 
-    // Entorno de escritorio. Excluyente con server_profile.
-    // Valores: "kde" | "gnome" | "xfce" | "budgie" | "cinnamon" | "cosmic"
-    // | "i3wm" | "hyprland" | "niri" | "lxde" | "lxqt" | "mate" | "qtile"
-    // | "sway" | "ukui" | "wayfire".
-    // PENDIENTE: escritorio o server_profile.
-    "desktop": "kde",
+    // NO IMPLEMENTADA (Fase 6). Repositorios a restaurar.
+    // Valores: URL de git.
+    // "etckeeper_repo": "",
+    // "chezmoi_repo": "",
+    // ======================================================================
+    // Sistema
+    // ======================================================================
 
-    // Inicio de sesión automático en el gestor de sesión gráfico.
+    // Nombre de la máquina (/etc/hostname).
+    // Valores: etiquetas separadas por "." de 1-63 caracteres A-Z, a-z, 0-9
+    // y "-" (sin "-" al principio ni al final). PENDIENTE.
+    "hostname": "pixmatic",
+
+    // Locale del sistema: LANG y todas las LC_* de /etc/locale.conf. Se
+    // activa en /etc/locale.gen junto con en_US.UTF-8 (como Calamares).
+    // Valores: una entrada de /etc/locale.gen sin el charset final
+    // ("es_ES.UTF-8", "en_US.UTF-8"...).
+    "locale": "es_ES.UTF-8",
+
+    // Distribución de teclado del entorno gráfico
+    // (/etc/X11/xorg.conf.d/00-keyboard.conf y, con Hyprland, kb_layout en
+    // ~/.config/hypr/hyprland.lua del usuario).
+    // Valores: los de "localectl list-x11-keymap-layouts" ("es", "us",
+    // "latam"...).
+    "xkbmap": "es",
+
+    // Teclado de la consola y de la frase de LUKS (/etc/vconsole.conf).
+    // Valores: los de "localectl list-keymaps" ("es", "us", "la-latin1"...).
+    // Por defecto: el valor de xkbmap (vale para "es" o "us", no para
+    // distribuciones cuyo nombre de consola es otro, como "latam").
+    // "console_keymap": "es",
+
+    // Zona horaria (/etc/localtime).
+    // Valores: los de "timedatectl list-timezones" ("Europe/Madrid"...).
+    "timezone": "Europe/Madrid",
+
+    // Cortafuegos ufw (se instala siempre). true: activo con las políticas
+    // del paquete (deny incoming, allow outgoing), como los instaladores
+    // oficiales.
     // Valores: true | false. Por defecto: false.
-    "autologin": false,
+    "firewall": false,
 
-    // Grupos de paquetes opcionales.
-    // Valores: array con cualquiera de "Gaming Support",
-    // "Multimedia & Codecs", "Office Suite", "Accessibility Tools".
-    "netinstall_groups": [],
+    // Servidor SSH activo en el sistema instalado, con acceso por usuario y
+    // contraseña, también como root (PermitRootLogin yes). Para depurar desde
+    // el primer arranque; los instaladores oficiales no lo activan. Con
+    // "firewall": true, ufw bloquea el puerto 22.
+    // Valores: true | false. Por defecto: false.
+    "ssh_server": true,
 
-    // Catálogo de paquetes propio que se superpone a net-profiles.toml.
-    // Valores: URL o "file:///ruta".
-    // "net_profiles_path": "file:///etc/pixmatic/net-profiles.toml",
+    // Grupos de paquetes de netinstall de Calamares (cachyos-staging), dentro
+    // del pacstrap único: grupo -> (subgrupo ->) paquete: true | false. Se
+    // instalan los paquetes a true, como al marcar/desmarcar en Calamares. Un
+    // grupo con todos sus paquetes a false no instala nada: en Calamares el
+    // grupo se desmarca solo al desmarcar todos sus paquetes, y no tiene otro
+    // efecto (PackageTreeItem.cpp:210-238). Un grupo comentado tampoco se
+    // instala. Se pueden añadir paquetes a un grupo (se validan antes de borrar
+    // el disco).
+    // Valores de este fichero: los grupos preseleccionados en Calamares, enteros
+    // (con sus paquetes gráficos, por fidelidad); los opcionales sin
+    // escritorio, a false y sin sus paquetes gráficos; de los de escritorio,
+    // solo Firefox e Hyprland, activos (fuera también "Accessibility Tools":
+    // orca y mousetweaks). "CachyOS required" va fijo en el script.
+    // Sin "cachyos-fish-config" se instala fish (la shell del usuario); sin
+    // "plymouth", el initramfs se genera sin su hook; con "firewall": true se
+    // instala ufw aunque esté a false aquí. Los servicios de Calamares se
+    // activan solo si su paquete está instalado.
+    "additional_packages": {
+        "CachyOS Packages": {
+            "cachyos-hello": true,
+            "cachyos-kernel-manager": true,
+            "cachyos-packageinstaller": true,
+            "cachyos-settings": true,
+            "cachyos-micro-settings": true,
+            "cachyos-wallpapers": true
+        },
+        "CachyOS shell configuration": {
+            "cachyos-fish-config": true,
+            "cachyos-zsh-config": true
+        },
+        "Base-devel + Common packages": {
+            "Network": {
+                "dnsmasq": true,
+                "dnsutils": true,
+                "ethtool": true,
+                "iwd": true,
+                "modemmanager": true,
+                "networkmanager": true,
+                "networkmanager-openvpn": true,
+                "nss-mdns": true,
+                "usb_modeswitch": true,
+                "wpa_supplicant": true,
+                "wireless-regdb": true,
+                "xl2tpd": true
+            },
+            "firewall": {
+                "ufw": true,
+                "ufw-extras": true
+            },
+            "bluetooth": {
+                "bluez": true,
+                "bluez-hid2hci": true,
+                "bluez-libs": true,
+                "bluez-utils": true,
+                "bluez-obex": true
+            },
+            "packages management": {
+                "pacman-contrib": true,
+                "pkgfile": true,
+                "rebuild-detector": true,
+                "reflector": true,
+                "shelly": true
+            },
+            "desktop integration": {
+                "accountsservice": true,
+                "bash-completion": true,
+                "ffmpegthumbnailer": true,
+                "gst-libav": true,
+                "gst-plugin-dav1d": true,
+                "gst-plugin-pipewire": true,
+                "gst-plugins-bad": true,
+                "gst-plugins-ugly": true,
+                "libdvdcss": true,
+                "libgsf": true,
+                "libopenraw": true,
+                "plocate": true,
+                "poppler-glib": true,
+                "vlc-plugins-all": true,
+                "xdg-user-dirs": true,
+                "xdg-utils": true
+            },
+            "filesystem": {
+                "efitools": true,
+                "nfs-utils": true,
+                "nilfs-utils": true,
+                "smartmontools": true,
+                "unrar": true,
+                "unzip": true
+            },
+            "fonts": {
+                "awesome-terminal-fonts": true,
+                "noto-fonts-emoji": true,
+                "cantarell-fonts": true,
+                "noto-fonts": true,
+                "ttf-bitstream-vera": true,
+                "ttf-dejavu": true,
+                "ttf-liberation": true,
+                "ttf-opensans": true,
+                "ttf-meslo-nerd": true,
+                "noto-fonts-cjk": true
+            },
+            "audio": {
+                "alsa-firmware": true,
+                "alsa-plugins": true,
+                "alsa-utils": true,
+                "pavucontrol": true,
+                "pipewire-pulse": true,
+                "wireplumber": true,
+                "pipewire-alsa": true,
+                "realtime-privileges": true
+            },
+            "hardware": {
+                "dmidecode": true,
+                "dmraid": true,
+                "hdparm": true,
+                "hwdetect": true,
+                "linux-firmware": true,
+                "lsscsi": true,
+                "mesa-utils": true,
+                "mtools": true,
+                "sg3_utils": true,
+                "sof-firmware": true
+            },
+            "power": {
+                "cpupower": true,
+                "power-profiles-daemon": true,
+                "upower": true
+            },
+            "Some applications selection": {
+                "alacritty": true,
+                "btop": true,
+                "duf": true,
+                "fsarchiver": true,
+                "git": true,
+                "glances": true,
+                "hwinfo": true,
+                "meld": true,
+                "nano-syntax-highlighting": true,
+                "fastfetch": true,
+                "pv": true,
+                "python-defusedxml": true,
+                "python-packaging": true,
+                "rsync": true,
+                "wget": true,
+                "ripgrep": true,
+                "micro": true,
+                "nano": true,
+                "vim": true,
+                "openssh": true
+            }
+        },
+        "Plymouth": {
+            "plymouth": true,
+            "cachyos-plymouth-bootanimation": true,
+            "cachyos-plymouth-theme": true
+        },
+        // Escritorio. firefox-i18n-es-es: el $LOCALE de Calamares, pendiente de
+        // confirmar.
+        "Firefox and language package": {
+            "firefox": true,
+            "firefox-i18n-es-es": true
+        },
+        // Escritorio. Con sddm instalado se activa sddm.service, como Calamares
+        // (dmcheck); Hyprland usa la distribución de "xkbmap" (los oficiales lo
+        // dejan en "us"). Pendiente de la Fase 3: aplicaciones y tema de
+        // Omarchy.
+        "Hyprland": {
+            "hyprland": true,
+            "dolphin": true,
+            "kitty": true,
+            "sddm": true,
+            "cachyos-hypr-noctalia": true
+        },
+        // Opcional en Calamares, sin system-config-printer (gráfico). Con cups se
+        // activa cups.service, como Calamares.
+        "Printing-Support": {
+            "cups": false,
+            "cups-filters": false,
+            "cups-pdf": false,
+            "foomatic-db": false,
+            "foomatic-db-engine": false,
+            "foomatic-db-gutenprint-ppds": false,
+            "foomatic-db-nonfree": false,
+            "foomatic-db-nonfree-ppds": false,
+            "foomatic-db-ppds": false,
+            "ghostscript": false,
+            "gsfonts": false,
+            "gutenprint": false
+        },
+        // Opcional en Calamares, sin python-pyqt5 (solo lo usa la interfaz
+        // gráfica de hplip).
+        "Support for HP Printer/Scanner": {
+            "hplip": false,
+            "python-reportlab": false,
+            "cups": false,
+            "cups-filters": false,
+            "cups-pdf": false
+        }
+    },
 
-    // ======================================================================
-    // Sistema sin escritorio (alternativa a "desktop")
-    // ======================================================================
-
-    // Perfil de servidor. Requiere quitar "desktop" y definir
-    // ssh_authorized_keys. Todos añaden openssh (solo con clave), ufw
-    // (solo SSH abierto), haveged, timesyncd y fstrim.timer.
-    // Valores: "minimal" (solo la base) | "web" (nginx + certbot, abre 80 y
-    // 443) | "container-host" (Docker compose) | "cockpit" (Cockpit).
-    // "server_profile": "minimal",
-
-    // Obsoleto. true sin server_profile equivale a "minimal"; false junto a
-    // server_profile da error.
-    // Valores: true | false.
-    // "server_mode": true,
-
-    // Claves públicas SSH del administrador (obligatorio con server_profile).
-    // Valores: array de líneas de authorized_keys.
-    // "ssh_authorized_keys": ["ssh-ed25519 AAAA... me@pixmatic.dev"],
-
-    // Paquetes extra sobre el perfil de servidor.
-    // Valores: array de nombres de paquete.
-    // "server_extra_packages": [],
-
-    // Puertos extra a abrir en ufw.
-    // Valores: array de números 1-65535.
-    // "server_extra_tcp_ports": [],
-    // "server_extra_udp_ports": [],
-
-    // ======================================================================
-    // Post-instalación
-    // ======================================================================
-
-    // Script a ejecutar al terminar. Se ejecuta EN EL LIVE (no en el
-    // chroot) y DESPUÉS de que el instalador desmonte el destino: tendrá que
-    // montarlo o usar arch-chroot por su cuenta. Si falla, solo se registra
-    // el error. PENDIENTE (etckeeper/chezmoi).
-    // Valores: ruta a un ejecutable en el live.
-    // "post_install": "/etc/pixmatic/post-install.sh",
-
-    // ======================================================================
-    // Varios
-    // ======================================================================
-
-    // Instala drivers según el hardware detectado (chwd -a).
-    // Valores: true | false. Por defecto: true.
-    "chwd": true,
-
-    // Reutiliza la caché de paquetes del live para no volver a descargarlos.
-    // Valores: true | false. Por defecto: true.
-    "hostcache": true,
-
-    // Copia las conexiones de NetworkManager del live al sistema instalado.
-    // Valores: true | false. Por defecto: true.
-    "carry_network": true
+    // Paquetes adicionales, dentro del pacstrap único. Solo de los repos del
+    // pacman.conf de la instalación (CachyOS, Arch y [chaotic-aur]; no el
+    // AUR); se validan antes de borrar el disco.
+    // Valores: array de nombres de paquete. Por defecto: [].
+    "extra_packages": []
 }

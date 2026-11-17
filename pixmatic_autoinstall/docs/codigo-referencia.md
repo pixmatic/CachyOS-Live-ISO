@@ -54,7 +54,8 @@ Detalle en [auditoria-calamares-base.md](auditoria-calamares-base.md).
 Se audita el tag que empaqueta `cachyos-cli-installer-new` (hoy `0.13.0`).
 Librerías `gucc/` e `installer-lib/` dentro del repo. Detalle en
 [auditoria-new-cli-installer-base.md](auditoria-new-cli-installer-base.md).
-Lo que importa para `settings.jsonc` y las pruebas con `cachyos-installer`:
+Notas de cuando `cachyos-installer` iba en la ISO y `settings.jsonc` seguía
+su formato (ya no: se quitó el 2026-11-16; quedan como referencia):
 
 - `--config <ruta>`; por defecto `./settings.json`. Sin config → TUI interactiva.
 - Solo lee JSON estricto (rapidjson, sin comas finales); **rechaza claves
@@ -73,11 +74,10 @@ Lo que importa para `settings.jsonc` y las pruebas con `cachyos-installer`:
 - Con `user_shell` zsh/fish instala `cachyos-zsh-config`/`cachyos-fish-config`.
 - Snapper: snapshot de instalación si está `cachyos-snapper-support`.
 
-`settings.jsonc` se escribió con los valores de `a257be6` (2026-11-10, 122
-commits por delante de `0.12.4`) y tiene las 43 claves de entonces. `0.13.0`
-acepta 45: añade `luks_passphrase` y `console_keymap`. **Pendiente** añadirlas
-comentadas y corregir las descripciones de `xkbmap` y `post_install` cuando la
-ISO traiga `0.13.0` (el repo aún servía `0.12.4` el 2026-11-16).
+`settings.jsonc` se escribió con los valores de `a257be6` (2026-11-10) y
+tenía sus 43 claves; `0.13.0` acepta 45 (añade `luks_passphrase` y
+`console_keymap`). Desde 2026-11-16 tiene esquema propio
+([decisiones.md §8](decisiones.md#8-configuración-del-instalador-settingsjsonc)).
 
 ### Omarchy
 

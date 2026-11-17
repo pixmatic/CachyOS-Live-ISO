@@ -25,10 +25,11 @@ cachyos-v3-mirrorlist
 cachyos-v4-mirrorlist
 cachyos-rate-mirrors
 
-# Instalador (ejecuta pacstrap, genfstab, arch-chroot y chwd desde el live)
-cachyos-cli-installer-new
+# Instalador propio pixmatic-install: pacstrap y arch-chroot, chwd, y jq para
+# leer settings.jsonc
 arch-install-scripts
 chwd
+jq
 
 # Discos y sistemas de ficheros: solo lo que usa el instalador propio (GPT con
 # sgdisk/sfdisk, ESP vfat, btrfs, LUKS2). e2fsprogs lo arrastra krb5 de todos

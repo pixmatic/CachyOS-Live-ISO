@@ -17,4 +17,7 @@ unset _f
 
 # Configuración del instalador (contendrá contraseñas)
 file_permissions["/etc/pixmatic"]="0:0:700"
-file_permissions["/etc/pixmatic/settings.json"]="0:0:600"
+file_permissions["/etc/pixmatic/settings.jsonc"]="0:0:600"
+
+# Instalador propio (mkarchiso no conserva el modo de los ficheros del overlay)
+file_permissions["/usr/local/bin/pixmatic-install"]="0:0:755"

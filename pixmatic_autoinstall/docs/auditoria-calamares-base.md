@@ -939,6 +939,14 @@ no lleva línea `initrd` propia: va dentro del initramfs (hook `microcode`).
 `LINUX_OPTIONS="nowatchdog quiet splash"` se **añade** a `/etc/kernel/cmdline`
 (`sdboot-manage:298-307`), así que esos parámetros salen duplicados.
 
+> **Corrección (2026-11-17)**: lo anterior es la versión **24** de
+> PKGBUILDS `master`. El repo `cachyos` sirve la **21**, que no lee
+> `/etc/kernel/cmdline`: la línea `options` es `root=UUID=<btrfs> rw
+> rootflags=subvol=/@` + `rd.luks.name=`/`cryptdevice=` (según haya
+> `sd-encrypt` en `/etc/mkinitcpio.conf`) + `nowatchdog quiet splash`,
+> calculada con `findmnt /`. Comprobado en una VM instalada con
+> `pixmatic-install` (ver decisiones §9).
+
 ## Paso 30: `gucc@enable_ufw`
 
 `gucc_enable_ufw.conf` (`action: enable-ufw`) → `GuccJob.cpp:59-64` →

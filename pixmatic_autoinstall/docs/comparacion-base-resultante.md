@@ -192,7 +192,7 @@ imágenes más que acaban en la ESP (R8).
 | Entradas | `linux-cachyos.conf` y `linux-cachyos-lts.conf` (`sdboot-manage gen`) | `linux-cachyos.conf` (`sdboot-manage gen`) | ver R4 |
 | `/etc/kernel/cmdline` | `quiet nowatchdog splash rw rootflags=subvol=/@ rd.luks.uuid=<U> root=/dev/mapper/luks-<U>` (repetido desde `splash` con dos kernels, Cal hallazgo 1) | `splash quiet zswap.enabled=0 nowatchdog rw rootflags=subvol=/@ rd.luks.name=<U>=cryptroot root=/dev/mapper/cryptroot` | medio |
 | `zswap.enabled=0` | no | sí | medio: desactiva zswap (CachyOS usa zram) |
-| `LINUX_OPTIONS` en la entrada | `sdboot-manage` 24 añade `nowatchdog quiet splash` (`pkgbuilds:systemd-boot-manager/sdboot-manage:298-307`) | igual | = (duplicados en ambos) |
+| `LINUX_OPTIONS` en la entrada | **Corrección 2026-11-17: el repo sirve la 21, que ignora `/etc/kernel/cmdline` (decisiones §9).** `sdboot-manage` 24 añade `nowatchdog quiet splash` (`pkgbuilds:systemd-boot-manager/sdboot-manage:298-307`) | igual | = (duplicados en ambos) |
 | Restos de `kernel-install` | `/boot/<machine-id>/<kver>/{linux,initrd}` por cada kernel (Cal hallazgo 2) | no | medio (ocupa una ESP de 2 GiB y nunca se actualiza) |
 | Actualizaciones del kernel | `sdboot-manage autogen` relee `/etc/kernel/cmdline` | igual | = |
 

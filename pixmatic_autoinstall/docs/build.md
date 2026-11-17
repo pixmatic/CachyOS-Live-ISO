@@ -33,10 +33,12 @@ Es un **envoltorio de `buildiso.sh`**:
    el PR upstream #122; cuando lo fusionen, `build.sh` avisa y se borran
    `trap_exit.sh` y su import). Nunca se parchea con `sed`: añadir líneas al
    final no depende de patrones y no falla en silencio.
-5. Genera `/etc/pixmatic/settings.json` desde `settings.jsonc`: elimina las
-   líneas que empiezan por `//` (solo comentarios de línea completa, para no
-   romper valores con `//`), valida con jq o python3 (aborta si no es JSON
-   válido) y lo instala con `/etc/pixmatic` 700 y el fichero 600 (vía
+5. Copia `settings.jsonc` (la configuración de `pixmatic-install`) tal
+   cual, con sus comentarios, a `/etc/pixmatic/settings.jsonc`, para poder
+   editarlo en el live; `pixmatic-install` quita las líneas que empiezan por
+   `//` al leerlo (solo comentarios de línea completa, para no romper valores
+   con `//`). Antes lo valida igual que el instalador (requiere `jq` en el
+   host; aborta si no es un objeto JSON) y lo instala con `/etc/pixmatic` 700 y el fichero 600 (vía
    `profiledef.append.sh`).
 6. Ejecuta `./buildiso.sh "$@" -p pixmatic` en la copia y mueve el resultado a
    `out/pixmatic/` (`cachyos-pixmatic-linux-AAMMDD.iso`). El éxito se
@@ -48,13 +50,12 @@ de upstream y se hereda solo.
 
 ## `settings.jsonc`
 
-- Contiene **todas** las claves que acepta `cachyos-installer`: las usadas
-  activas y el resto comentadas en su sitio, con descripción, valores posibles
-  y valor por defecto. Si se quiere omitir algo, se comenta, no se borra.
-- Será también la configuración del instalador propio
+- Configuración de `pixmatic-install`, con esquema propio: **todas** las
+  opciones presentes, las no usadas comentadas en su sitio con descripción,
+  valores posibles y valor por defecto. Si se quiere omitir algo, se comenta,
+  no se borra. Las de fases futuras van comentadas y marcadas «NO
+  IMPLEMENTADA»
   ([decisiones.md §8](decisiones.md#8-configuración-del-instalador-settingsjsonc)).
-- Detalles de `cachyos-installer` y claves pendientes de `0.13.0` en
-  [codigo-referencia.md](codigo-referencia.md#new-cli-installer).
 
 ## Vigilancia tras cada merge de upstream
 
@@ -85,12 +86,17 @@ Mantener esta lista al día (fichero — motivo):
 systemd-boot sin menú (solo UEFI) → initramfs archiso (`copytoram=auto`) →
 `multi-user.target` → `pacman-init`, NetworkManager, resolved, sshd →
 autologin de `liveuser` (sudo sin contraseña) en tty1 → motd → **prompt de
-bash**. **No instala nada automáticamente.** Instalación manual de prueba:
-`sudo cachyos-installer --config /etc/pixmatic/settings.json` (borra el disco
-de `device`; en una VM con virtio el disco es `/dev/vda`).
+bash**. **No instala nada automáticamente.** Instalador propio (primera
+versión, de pruebas): `sudo pixmatic-install [settings.jsonc]` (por defecto
+`/etc/pixmatic/settings.jsonc`, editable en el live con sus comentarios; borra el disco de `device` sin pedir
+confirmación; contraseñas tal cual de `user_pass`/`root_pass`; log en
+`/var/log/pixmatic-install.log`, copiado también al sistema instalado). En
+una VM con virtio el disco es `/dev/vda`: copiar el fichero, cambiar
+`device` y pasarlo como argumento.
 
-Detalles: teclado US en el live, wifi con `nmtui`, ssh no admite contraseñas
-vacías, el mecanismo `script=` de upstream no aplica (solo root+zsh).
+Detalles: teclado español en la consola del live (`vconsole.conf` del
+overlay), wifi con `nmtui`, SSH como `root` o `liveuser` sin contraseña ni
+claves (`ssh/sshd_config.d/20-pixmatic.conf`), el mecanismo `script=` de upstream no aplica (solo root+zsh).
 
 ## Estructura de upstream (referencia)
 

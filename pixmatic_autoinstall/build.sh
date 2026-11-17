@@ -6,10 +6,12 @@
 #   2. elimina las rutas de remove.list y aplica el overlay archiso/
 #      (incluye pacman.conf con los repos x86-64-v3)
 #   3. añade profiledef.append.sh al final de la copia de profiledef.sh
-#   4. hace que la copia de util-iso.sh cargue prepare_profile.sh (sustituye
+#   4. valida settings.jsonc (configuración de pixmatic-install) y lo copia
+#      tal cual, con comentarios, a /etc/pixmatic/settings.jsonc
+#   5. hace que la copia de util-iso.sh cargue prepare_profile.sh (sustituye
 #      al prepare_profile() de upstream, que es específico del escritorio) y
 #      trap_exit.sh (no avisa de error al terminar bien; PR #122 de upstream)
-#   5. ejecuta ./buildiso.sh -p pixmatic en la copia y mueve el resultado a
+#   6. ejecuta ./buildiso.sh -p pixmatic en la copia y mueve el resultado a
 #      out/pixmatic
 #
 # Uso: sudo ./pixmatic_autoinstall/build.sh [opciones de buildiso.sh salvo -p]
@@ -47,6 +49,8 @@ if ! diff -u "${pix_dir}/pacman.conf.upstream" "${src_dir}/archiso/pacman.conf";
     exit 1
 fi
 
+type -P jq > /dev/null || die "jq is required to generate the installer settings"
+
 # Los paquetes del live son x86-64-v3 y mkarchiso ejecuta sus scriptlets y
 # hooks en el host durante la build: el host tiene que soportar x86-64-v3.
 if ! /lib/ld-linux-x86-64.so.2 --help | grep -q 'x86-64-v3 (supported'; then
@@ -74,19 +78,13 @@ cp -a --remove-destination "${pix_dir}/archiso/." "${tree_dir}/archiso/"
 cat "${pix_dir}/profiledef.append.sh" >> "${tree_dir}/archiso/profiledef.sh"
 printf '\nimport "%s"\n' "${pix_dir}/prepare_profile.sh" "${pix_dir}/trap_exit.sh" >> "${tree_dir}/util-iso.sh"
 
-# settings.jsonc -> settings.json: solo se eliminan líneas de comentario
-# completas, para no tocar valores que contengan // (p. ej. URLs).
-msg2 "Generating installer settings.json"
-settings="${tree_dir}/archiso/airootfs/etc/pixmatic/settings.json"
-mkdir -p "$(dirname "${settings}")"
-grep -Ev '^[[:space:]]*//' "${pix_dir}/settings.jsonc" > "${settings}"
-if type -P jq > /dev/null; then
-    jq empty "${settings}" || die "Invalid JSON generated from settings.jsonc"
-elif type -P python3 > /dev/null; then
-    python3 -m json.tool "${settings}" > /dev/null || die "Invalid JSON generated from settings.jsonc"
-else
-    warning "Neither jq nor python3 found: settings.json not validated"
-fi
+# settings.jsonc va tal cual (con comentarios, para editarlo en el live);
+# pixmatic-install quita las líneas // al leerlo. Aquí solo se valida igual
+# que lo hará el instalador, para no generar una ISO con un fichero roto.
+msg2 "Installing settings.jsonc"
+grep -Ev '^[[:space:]]*//' "${pix_dir}/settings.jsonc" | jq -e 'type == "object"' > /dev/null \
+    || die "settings.jsonc is not a JSON object once // lines are removed"
+install -Dm600 "${pix_dir}/settings.jsonc" "${tree_dir}/archiso/airootfs/etc/pixmatic/settings.jsonc"
 
 msg "Running buildiso.sh"
 cd "${tree_dir}"
