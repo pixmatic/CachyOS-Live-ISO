@@ -9,7 +9,7 @@ actualizan con `git pull`/`git fetch`. Son clones parciales
 
 Regla: se audita **lo que se empaqueta realmente**, no solo `master`.
 
-## Clones (estado a 2026-11-16; Hyprland y Noctalia, 2026-11-21)
+## Clones (estado a 2026-11-16; Hyprland y Noctalia, 2026-11-21; niri, 2026-11-22)
 
 | Carpeta | Repo | Rama/estado | Qué se empaqueta |
 |---|---|---|---|
@@ -22,6 +22,7 @@ Regla: se audita **lo que se empaqueta realmente**, no solo `master`.
 | `Hyprland/` | `hyprwm/Hyprland` | detached en el tag **`v0.57.2`** (`11cbc6c5`, 2026-11-09); rama por defecto `main`; sin submódulos (`udis86`, `tracy`) | paquete `hyprland` 0.57.2-1 (`extra`) (clonado 2026-11-21) |
 | `noctalia/` | `noctalia-dev/noctalia` | detached en el tag **`v5.5.0`** (`c2573248a`, 2026-11-12); rama por defecto `main` (ya hay `v5.6.0`) | paquete `noctalia` 5.5.0-2 (`extra`; el anexo de Hyprland citaba 5.5.0-1.1 de `cachyos-extra-v3`) (clonado 2026-11-21) |
 | `cachyos-hypr-noctalia/` | `cachyos/cachyos-hypr-noctalia` | detached en el tag **`1.2.6`** (`9855451`, 2026-09-08); rama por defecto `master` (`467067b`) | paquete `cachyos-hypr-noctalia` 1.2.6-1 (`cachyos`): los dotfiles que van a `/etc/skel` (clonado 2026-11-21) |
+| `niri/` | `niri-wm/niri` (antes `YaLTeR/niri`) | detached en el tag **`v26.04`** (`8ed0da4`, 2026-04-25), `--depth 1`; última release | paquete `niri` 26.04-1 (`extra`) (clonado 2026-11-22; solo para [hyprland-frente-a-niri.md](hyprland-frente-a-niri.md)) |
 
 ## Notas
 

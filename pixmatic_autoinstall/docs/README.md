@@ -49,6 +49,10 @@ derivadas para el instalador propio.
   - [sistema-resultante-hyprland.md](sistema-resultante-hyprland.md): cómo
     queda el sistema de nuestro instalador con el Hyprland de CachyOS (A) y
     con Omarchy (B), opciones para el arranque y decisiones pendientes.
+  - [hyprland-frente-a-niri.md](hyprland-frente-a-niri.md): diferencias
+    funcionales entre Hyprland `v0.57.2` y niri `v26.04` para juegos y
+    multimedia (HDR y gestión de color, tearing, `fifo`/`commit-timing`,
+    Xwayland, gamescope) y estimación del tamaño de añadir HDR a niri.
 
 - Seguimiento de upstream:
   - [impacto-upstream-26.11.md](impacto-upstream-26.11.md): CachyOS 26.11
