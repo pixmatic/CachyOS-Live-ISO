@@ -67,7 +67,7 @@ comparación.
 | Hardware | `chwd -a` (puede añadir NVIDIA con los módulos de `linux-cachyos-nvidia-open`). |
 | Snapper | config `root` + snapshot de instalación si está `cachyos-snapper-support`. |
 | Locale/teclado | `es_ES.UTF-8`, `KEYMAP=es` en `/etc/vconsole.conf`, `Europe/Madrid`. |
-| Servicios | los de Calamares (NetworkManager, ufw, …). `ModemManager` pendiente. |
+| Servicios | los de Calamares que tengan su paquete instalado (ufw, …). Red con `systemd-networkd` + `systemd-resolved` en lugar de NetworkManager (decisiones §8). `ModemManager` pendiente. |
 | `default.target` | `multi-user.target` (sin escritorio). |
 
 ## A. Base + Hyprland de CachyOS

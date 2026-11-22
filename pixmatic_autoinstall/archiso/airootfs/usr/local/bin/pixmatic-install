@@ -491,6 +491,16 @@ fi
 if installs openssh; then
     systemctl --root="${mnt}" enable sshd.service
 fi
+# Red sin NetworkManager (desviación deliberada, decisiones §8): si no se
+# instala, systemd-networkd con DHCP en toda Ethernet física, mediante el
+# ejemplo de systemd enlazado desde /etc (el método que indica su cabecera),
+# y systemd-resolved para el DNS. El enlace de /etc/resolv.conf se crea al
+# final (paso 10), para no interferir con el resolv.conf de arch-chroot.
+if ! installs networkmanager; then
+    ln -s /usr/lib/systemd/network/89-ethernet.network.example \
+        "${mnt}/etc/systemd/network/89-ethernet.network"
+    systemctl --root="${mnt}" enable systemd-networkd.service systemd-resolved.service
+fi
 
 # --- 7. Usuario (tras los paquetes: useradd -m copia el skel completo) --------
 
@@ -593,6 +603,11 @@ pacnew="$(find "${mnt}/etc" -name '*.pacnew')"
 echo "UKI:" && ls -l "${mnt}"/boot/EFI/Linux/
 echo "cmdline: $(< "${mnt}/etc/kernel/cmdline")"
 efibootmgr
+# DNS de systemd-resolved (con systemd-networkd, paso 6), tras el último
+# arch-chroot
+if ! installs networkmanager; then
+    ln -sf ../run/systemd/resolve/stub-resolv.conf "${mnt}/etc/resolv.conf"
+fi
 cp "${log}" "${mnt}/var/log/pixmatic-install.log"   # para depurar (versión de pruebas)
 
 umount -R "${mnt}"

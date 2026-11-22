@@ -378,12 +378,28 @@ añade estos repos.
     `pacstrap.conf`).
   - **Sistema mínimo** (2026-11-22; desviación deliberada): se mantienen
     todos los paquetes en el fichero, pero a `true` solo lo imprescindible:
-    `networkmanager`, `wpa_supplicant`, `wireless-regdb`, `linux-firmware`,
+    `wireless-regdb` (además, dependencia de `cachyos-settings`), `linux-firmware`,
     `noto-fonts` (una fuente para Hyprland y alacritty),
     `cachyos-micro-settings` (el editor `micro`, que llega como su
     dependencia, con la config de CachyOS; hasta el 2026-11-22, `nano`),
     `alacritty`, `cachyos-settings` (ya fijo en `pacstrap.conf`) y, en
     *Hyprland*, solo `hyprland`.
+  - **Red sin NetworkManager** (2026-11-22, decisión del usuario;
+    desviación respecto a Calamares, que usa NetworkManager): conexión por
+    Ethernet con DHCP, sin Wi-Fi. `networkmanager` y `wpa_supplicant` a
+    `false`. Si `networkmanager` no se instala, el script enlaza
+    `/etc/systemd/network/89-ethernet.network` →
+    `/usr/lib/systemd/network/89-ethernet.network.example` (el ejemplo de
+    systemd: DHCPv4 y DHCPv6 en todo enlace Ethernet físico; el enlace es el
+    primer método que indica su cabecera, y sigue las actualizaciones de
+    systemd), activa `systemd-networkd` (con él,
+    `systemd-networkd-wait-online`) y `systemd-resolved`, y enlaza
+    `/etc/resolv.conf` → `../run/systemd/resolve/stub-resolv.conf` al final,
+    tras el último `arch-chroot`. Sin `.network`, networkd no gestiona
+    ninguna interfaz: los que trae activos son para contenedores, VM y
+    túneles. Sin cable, lo que espere a `network-online.target` retrasa el
+    arranque hasta 2 minutos. Con `networkmanager` a `true`, todo vuelve a
+    ser como en Calamares. Wi-Fi, si hiciera falta: `iwd`.
   - **Uso multimedia y juegos** (2026-11-22, decisión del usuario): se
     activan además, sin añadir aplicaciones, las casillas necesarias para
     ese uso: audio (`pipewire-pulse`, `wireplumber`, `pipewire-alsa`,
@@ -547,7 +563,8 @@ sigue el orden de §5. Lo que concreta o cambia respecto a lo anterior:
   Calamares).
 - **Conexiones de NetworkManager del live** copiadas al sistema instalado
   sin pisar las existentes y con `permissions=user:liveuser:;` cambiado al
-  usuario, como Calamares (Cal §22).
+  usuario, como Calamares (Cal §22). Solo con NetworkManager instalado
+  (desde el 2026-11-22 no lo está: §8, red sin NetworkManager).
 - **`[chaotic-aur]`** como en §6: claves `--recv-keys` + `--lsign-key` en el
   live; al final del `pacman.conf`; el `pacstrap` usa los servidores del
   `chaotic-mirrorlist` del paquete (20260428-1) en su orden, `geo-mirror`

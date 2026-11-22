@@ -122,8 +122,7 @@
     // sin sus paquetes gráficos); de los de escritorio, solo Firefox e
     // Hyprland (fuera también "Accessibility Tools": orca y mousetweaks).
     // "CachyOS required" va fijo en el script. Sistema mínimo (2026-11-22):
-    // a true solo lo imprescindible (red con NetworkManager, firmware, una
-    // fuente, micro con cachyos-micro-settings, Hyprland y alacritty) y,
+    // a true solo lo imprescindible (firmware, una fuente, micro con cachyos-micro-settings, Hyprland y alacritty) y,
     // para el uso del equipo (multimedia y juegos, 2026-11-22), audio con
     // PipeWire, códecs de GStreamer, Bluetooth (mandos), fuentes de emoji,
     // CJK y Liberation, y xdg-utils/xdg-user-dirs; lo demás, a false: es una
@@ -136,7 +135,9 @@
     // cortafuegos queda activo (deny incoming, allow outgoing; bloquea el
     // puerto 22). Con "openssh", sshd queda activo (desviación: Calamares no
     // lo activa), con la config del paquete: el usuario entra con contraseña;
-    // root, no.
+    // root, no. Sin "networkmanager", la red va con systemd-networkd (DHCP
+    // en toda Ethernet física, sin Wi-Fi) y systemd-resolved (desviación,
+    // decisiones §8).
     "additional_packages": {
         "CachyOS Packages": {
             "cachyos-hello": false,
@@ -158,11 +159,11 @@
                 "ethtool": false,
                 "iwd": false,
                 "modemmanager": false,
-                "networkmanager": true,
+                "networkmanager": false,
                 "networkmanager-openvpn": false,
                 "nss-mdns": false,
                 "usb_modeswitch": false,
-                "wpa_supplicant": true,
+                "wpa_supplicant": false,
                 "wireless-regdb": true,
                 "xl2tpd": false
             },
