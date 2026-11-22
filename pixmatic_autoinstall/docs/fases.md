@@ -63,7 +63,15 @@ Instaladores oficiales (Calamares con Hyprland, `cachyos-installer` con
       `config/hypr/looknfeel.lua`, Quickshell) y decidir cómo aplicarlo sin
       depender de los paquetes de Omarchy (`/etc/skel` o chezmoi).
 - [x] Teclado de Hyprland: `kb_layout` = `xkbmap` (decisiones §7).
-- [ ] Pendientes: shell (fish o bash), autologin con LUKS.
+- [x] Sistema mínimo (2026-11-22, decisiones §7-8): Hyprland sin Noctalia,
+      sin display manager ni greeter (autologin en tty1 que lanza
+      `start-hyprland`) y con alacritty; en `additional_packages`, a `true`
+      solo lo imprescindible.
+- [ ] Probar en VM el sistema mínimo (el usuario): entra solo en Hyprland
+      con teclado `es`, `SUPER+Q` abre alacritty, al salir de Hyprland queda
+      la consola en tty1.
+- [ ] Pendientes: shell (fish o bash); protección del autologin con LUKS2
+      (Fase 5).
 
 ## Fase 4: instalador propio automático y desatendido
 
@@ -85,7 +93,10 @@ Instaladores oficiales (Calamares con Hyprland, `cachyos-installer` con
       en el `pacman.conf` instalado, sin `.pacnew`.
 - [x] Grupo "Hyprland" de `additional_packages`: si `sddm` queda instalado,
       `systemctl enable sddm` (como `dmcheck` de Calamares) y `kb_layout` de
-      `xkbmap` al final del `hyprland.lua` del usuario.
+      `xkbmap` al final del `hyprland.lua` del usuario. Desde 2026-11-22:
+      autologin en tty1 (`getty@tty1` con `--autologin`) y, con Hyprland,
+      `start-hyprland` desde el login de fish; config de ejemplo de Hyprland
+      al usuario.
 - [ ] Decidir: disco real, hostname/usuario. Shell: fish fija (hecho).
 - [x] `settings.jsonc` con esquema propio (sin `cachyos-installer`, que sale
       de la ISO): claves actuales y futuras comentadas

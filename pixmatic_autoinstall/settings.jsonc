@@ -130,170 +130,180 @@
     // efecto (PackageTreeItem.cpp:210-238). Un grupo comentado tampoco se
     // instala. Se pueden añadir paquetes a un grupo (se validan antes de borrar
     // el disco).
-    // Valores de este fichero: los grupos preseleccionados en Calamares, enteros
-    // (con sus paquetes gráficos, por fidelidad); los opcionales sin
-    // escritorio, a false y sin sus paquetes gráficos; de los de escritorio,
-    // solo Firefox e Hyprland, activos (fuera también "Accessibility Tools":
-    // orca y mousetweaks). "CachyOS required" va fijo en el script.
+    // Valores de este fichero: están todos los paquetes de los grupos
+    // preseleccionados en Calamares y de los opcionales sin escritorio (estos,
+    // sin sus paquetes gráficos); de los de escritorio, solo Firefox e
+    // Hyprland (fuera también "Accessibility Tools": orca y mousetweaks).
+    // "CachyOS required" va fijo en el script. Sistema mínimo (2026-11-22):
+    // a true solo lo imprescindible (red con NetworkManager, firmware, una
+    // fuente, nano, Hyprland y alacritty); lo demás, a false: es una
+    // desviación deliberada respecto a Calamares, que los preselecciona
+    // (decisiones §8). Estas listas replican las de Calamares: lo que no esté
+    // en ellas va en extra_packages.
     // Sin "cachyos-fish-config" se instala fish (la shell del usuario); sin
     // "plymouth", el initramfs se genera sin su hook; con "firewall": true se
-    // instala ufw aunque esté a false aquí. Los servicios de Calamares se
-    // activan solo si su paquete está instalado.
+    // instala ufw y con "ssh_server": true, openssh, aunque estén a false
+    // aquí. Los servicios de Calamares se activan solo si su paquete está
+    // instalado.
     "additional_packages": {
         "CachyOS Packages": {
-            "cachyos-hello": true,
-            "cachyos-kernel-manager": true,
-            "cachyos-packageinstaller": true,
+            "cachyos-hello": false,
+            "cachyos-kernel-manager": false,
+            "cachyos-packageinstaller": false,
             "cachyos-settings": true,
-            "cachyos-micro-settings": true,
-            "cachyos-wallpapers": true
+            "cachyos-micro-settings": false,
+            "cachyos-wallpapers": false
         },
         "CachyOS shell configuration": {
-            "cachyos-fish-config": true,
-            "cachyos-zsh-config": true
+            "cachyos-fish-config": false,
+            "cachyos-zsh-config": false
         },
         "Base-devel + Common packages": {
             "Network": {
-                "dnsmasq": true,
-                "dnsutils": true,
-                "ethtool": true,
-                "iwd": true,
-                "modemmanager": true,
+                "dnsmasq": false,
+                "dnsutils": false,
+                "ethtool": false,
+                "iwd": false,
+                "modemmanager": false,
                 "networkmanager": true,
-                "networkmanager-openvpn": true,
-                "nss-mdns": true,
-                "usb_modeswitch": true,
+                "networkmanager-openvpn": false,
+                "nss-mdns": false,
+                "usb_modeswitch": false,
                 "wpa_supplicant": true,
                 "wireless-regdb": true,
-                "xl2tpd": true
+                "xl2tpd": false
             },
             "firewall": {
-                "ufw": true,
-                "ufw-extras": true
+                "ufw": false,
+                "ufw-extras": false
             },
             "bluetooth": {
-                "bluez": true,
-                "bluez-hid2hci": true,
-                "bluez-libs": true,
-                "bluez-utils": true,
-                "bluez-obex": true
+                "bluez": false,
+                "bluez-hid2hci": false,
+                "bluez-libs": false,
+                "bluez-utils": false,
+                "bluez-obex": false
             },
             "packages management": {
-                "pacman-contrib": true,
-                "pkgfile": true,
-                "rebuild-detector": true,
-                "reflector": true,
-                "shelly": true
+                "pacman-contrib": false,
+                "pkgfile": false,
+                "rebuild-detector": false,
+                "reflector": false,
+                "shelly": false
             },
             "desktop integration": {
-                "accountsservice": true,
-                "bash-completion": true,
-                "ffmpegthumbnailer": true,
-                "gst-libav": true,
-                "gst-plugin-dav1d": true,
-                "gst-plugin-pipewire": true,
-                "gst-plugins-bad": true,
-                "gst-plugins-ugly": true,
-                "libdvdcss": true,
-                "libgsf": true,
-                "libopenraw": true,
-                "plocate": true,
-                "poppler-glib": true,
-                "vlc-plugins-all": true,
-                "xdg-user-dirs": true,
-                "xdg-utils": true
+                "accountsservice": false,
+                "bash-completion": false,
+                "ffmpegthumbnailer": false,
+                "gst-libav": false,
+                "gst-plugin-dav1d": false,
+                "gst-plugin-pipewire": false,
+                "gst-plugins-bad": false,
+                "gst-plugins-ugly": false,
+                "libdvdcss": false,
+                "libgsf": false,
+                "libopenraw": false,
+                "plocate": false,
+                "poppler-glib": false,
+                "vlc-plugins-all": false,
+                "xdg-user-dirs": false,
+                "xdg-utils": false
             },
             "filesystem": {
-                "efitools": true,
-                "nfs-utils": true,
-                "nilfs-utils": true,
-                "smartmontools": true,
-                "unrar": true,
-                "unzip": true
+                "efitools": false,
+                "nfs-utils": false,
+                "nilfs-utils": false,
+                "smartmontools": false,
+                "unrar": false,
+                "unzip": false
             },
             "fonts": {
-                "awesome-terminal-fonts": true,
-                "noto-fonts-emoji": true,
-                "cantarell-fonts": true,
+                "awesome-terminal-fonts": false,
+                "noto-fonts-emoji": false,
+                "cantarell-fonts": false,
                 "noto-fonts": true,
-                "ttf-bitstream-vera": true,
-                "ttf-dejavu": true,
-                "ttf-liberation": true,
-                "ttf-opensans": true,
-                "ttf-meslo-nerd": true,
-                "noto-fonts-cjk": true
+                "ttf-bitstream-vera": false,
+                "ttf-dejavu": false,
+                "ttf-liberation": false,
+                "ttf-opensans": false,
+                "ttf-meslo-nerd": false,
+                "noto-fonts-cjk": false
             },
             "audio": {
-                "alsa-firmware": true,
-                "alsa-plugins": true,
-                "alsa-utils": true,
-                "pavucontrol": true,
-                "pipewire-pulse": true,
-                "wireplumber": true,
-                "pipewire-alsa": true,
-                "realtime-privileges": true
+                "alsa-firmware": false,
+                "alsa-plugins": false,
+                "alsa-utils": false,
+                "pavucontrol": false,
+                "pipewire-pulse": false,
+                "wireplumber": false,
+                "pipewire-alsa": false,
+                "realtime-privileges": false
             },
             "hardware": {
-                "dmidecode": true,
-                "dmraid": true,
-                "hdparm": true,
-                "hwdetect": true,
+                "dmidecode": false,
+                "dmraid": false,
+                "hdparm": false,
+                "hwdetect": false,
                 "linux-firmware": true,
-                "lsscsi": true,
-                "mesa-utils": true,
-                "mtools": true,
-                "sg3_utils": true,
-                "sof-firmware": true
+                "lsscsi": false,
+                "mesa-utils": false,
+                "mtools": false,
+                "sg3_utils": false,
+                "sof-firmware": false
             },
             "power": {
-                "cpupower": true,
-                "power-profiles-daemon": true,
-                "upower": true
+                "cpupower": false,
+                "power-profiles-daemon": false,
+                "upower": false
             },
             "Some applications selection": {
                 "alacritty": true,
-                "btop": true,
-                "duf": true,
-                "fsarchiver": true,
-                "git": true,
-                "glances": true,
-                "hwinfo": true,
-                "meld": true,
-                "nano-syntax-highlighting": true,
-                "fastfetch": true,
-                "pv": true,
-                "python-defusedxml": true,
-                "python-packaging": true,
-                "rsync": true,
-                "wget": true,
-                "ripgrep": true,
-                "micro": true,
+                "btop": false,
+                "duf": false,
+                "fsarchiver": false,
+                "git": false,
+                "glances": false,
+                "hwinfo": false,
+                "meld": false,
+                "nano-syntax-highlighting": false,
+                "fastfetch": false,
+                "pv": false,
+                "python-defusedxml": false,
+                "python-packaging": false,
+                "rsync": false,
+                "wget": false,
+                "ripgrep": false,
+                "micro": false,
                 "nano": true,
-                "vim": true,
-                "openssh": true
+                "vim": false,
+                "openssh": false
             }
         },
         "Plymouth": {
-            "plymouth": true,
-            "cachyos-plymouth-bootanimation": true,
-            "cachyos-plymouth-theme": true
+            "plymouth": false,
+            "cachyos-plymouth-bootanimation": false,
+            "cachyos-plymouth-theme": false
         },
         // Escritorio. firefox-i18n-es-es: el $LOCALE de Calamares, pendiente de
-        // confirmar.
+        // confirmar. A false en el sistema mínimo.
         "Firefox and language package": {
-            "firefox": true,
-            "firefox-i18n-es-es": true
+            "firefox": false,
+            "firefox-i18n-es-es": false
         },
-        // Escritorio. Con sddm instalado se activa sddm.service, como Calamares
-        // (dmcheck); Hyprland usa la distribución de "xkbmap" (los oficiales lo
-        // dejan en "us"). Pendiente de la Fase 3: aplicaciones y tema de
-        // Omarchy.
+        // Escritorio. Desviación (decisiones §7): sin Noctalia
+        // (cachyos-hypr-noctalia) ni SDDM ni ningún otro greeter: el usuario
+        // entra solo en tty1 (getty con --autologin) y su login de fish
+        // lanza start-hyprland. Sin dotfiles en /etc/skel, el usuario recibe la
+        // config de ejemplo de Hyprland (/usr/share/hypr/hyprland.lua) con
+        // alacritty como terminal si está instalado y la distribución de
+        // "xkbmap" (los oficiales la dejan en "us"). Pendiente de la Fase 3:
+        // aplicaciones y tema de Omarchy.
         "Hyprland": {
             "hyprland": true,
-            "dolphin": true,
-            "kitty": true,
-            "sddm": true,
-            "cachyos-hypr-noctalia": true
+            "dolphin": false,
+            "kitty": false,
+            "sddm": false,
+            "cachyos-hypr-noctalia": false
         },
         // Opcional en Calamares, sin system-config-printer (gráfico). Con cups se
         // activa cups.service, como Calamares.
