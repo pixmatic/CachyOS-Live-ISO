@@ -9,7 +9,7 @@ actualizan con `git pull`/`git fetch`. Son clones parciales
 
 Regla: se audita **lo que se empaqueta realmente**, no solo `master`.
 
-## Clones (estado a 2026-11-16)
+## Clones (estado a 2026-11-16; Hyprland y Noctalia, 2026-11-21)
 
 | Carpeta | Repo | Rama/estado | Qué se empaqueta |
 |---|---|---|---|
@@ -19,6 +19,9 @@ Regla: se audita **lo que se empaqueta realmente**, no solo `master`.
 | `omarchy/` | `basecamp/omarchy` (= `omacom/omarchy`) | detached en el tag **`v4.5.0`** (`ac2690cd7`); rama por defecto `quattro` | paquetes `omarchy`/`omarchy-settings` 4.5.0-2, compilados desde `a948d8a68` (hermano del tag; solo difiere en interfaz) |
 | `omarchy-iso/` | `omacom/omarchy-iso` | detached en `origin/v4-5-0` (`2f22117aa`; no tiene tags) | la ISO de Omarchy, que **orquesta la instalación** (imagen raíz + comandos de Omarchy en chroot) |
 | `omarchy-pkgs/` | `omacom/omarchy-pkgs` | `master` (`d727707b`) | PKGBUILDs del repo `[omarchy]`. Ojo: **no coinciden** con lo publicado en `pkgs.omarchy.org`; comprobar siempre contra su base de datos |
+| `Hyprland/` | `hyprwm/Hyprland` | detached en el tag **`v0.57.2`** (`11cbc6c5`, 2026-11-09); rama por defecto `main`; sin submódulos (`udis86`, `tracy`) | paquete `hyprland` 0.57.2-1 (`extra`) (clonado 2026-11-21) |
+| `noctalia/` | `noctalia-dev/noctalia` | detached en el tag **`v5.5.0`** (`c2573248a`, 2026-11-12); rama por defecto `main` (ya hay `v5.6.0`) | paquete `noctalia` 5.5.0-2 (`extra`; el anexo de Hyprland citaba 5.5.0-1.1 de `cachyos-extra-v3`) (clonado 2026-11-21) |
+| `cachyos-hypr-noctalia/` | `cachyos/cachyos-hypr-noctalia` | detached en el tag **`1.2.6`** (`9855451`, 2026-09-08); rama por defecto `master` (`467067b`) | paquete `cachyos-hypr-noctalia` 1.2.6-1 (`cachyos`): los dotfiles que van a `/etc/skel` (clonado 2026-11-21) |
 
 ## Notas
 

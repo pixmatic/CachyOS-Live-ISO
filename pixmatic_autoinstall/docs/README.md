@@ -31,6 +31,11 @@ derivadas para el instalador propio.
     respecto a la base de Calamares `cachyos-staging` al elegir Hyprland
     (grupo netinstall con SDDM + `cachyos-hypr-noctalia`, `displaymanager`,
     `dmcheck`), y en qué se diferencia del greetd de `cachyos-dev`.
+  - [noctalia-frente-a-hyprland-pelado.md](noctalia-frente-a-hyprland-pelado.md):
+    qué añade `cachyos-hypr-noctalia` 1.2.6 (Noctalia 5.5.0) respecto a
+    instalar solo `hyprland` 0.57.2: paquetes y peso, config de Hyprland
+    frente al ejemplo autogenerado, atajos, Noctalia, tema GTK/Qt y
+    observaciones (plantillas que reescriben el `$HOME`, sesión uwsm).
   - [anexo-hyprland-new-cli-installer.md](anexo-hyprland-new-cli-installer.md):
     qué cambia respecto a la base de NCI `0.13.0` con `desktop: hyprland`
     (perfil `[desktop.hyprland]` con SDDM, plymouth, activación del DM).

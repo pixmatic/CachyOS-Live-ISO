@@ -239,8 +239,11 @@ Con `users` después de los paquetes es **redundante**: copia otra vez lo que
    `00-keyboard.conf` (X11) y `/etc/default/keyboard`. Hyprland no lee
    ninguno, y `config/inputs.lua` de `cachyos-hypr-noctalia` no define
    `kb_layout`, así que **Hyprland arranca con distribución `us`** aunque se
-   haya elegido `es`. El greeter de SDDM (X11) sí debería tomar `es` de
-   `00-keyboard.conf` (a confirmar).
+   haya elegido `es` (**confirmado** por el usuario en una instalación con la
+   ISO oficial `260809`, la de descarga en la web, 2026-11-21; sigue igual en `master` de
+   `cachyos-hypr-noctalia`, `467067b5a`; notificado en
+   [cachyos-hypr-noctalia#48](https://github.com/CachyOS/cachyos-hypr-noctalia/issues/48)). El greeter de SDDM (X11) sí debería
+   tomar `es` de `00-keyboard.conf` (a confirmar).
 5. `/etc/sddm.conf` con `[Autologin] Session=` sin `User=`: inocuo.
 6. `xhost +SI:localuser:root` en el autostart permite a root abrir ventanas
    en la sesión (para herramientas gráficas con privilegios).
@@ -270,5 +273,6 @@ Lo que hacía la rama auditada primero y `staging` no hace:
   activen los scriptlets de las dependencias nuevas.
 - Destino final de `display-manager.service` (que ninguna comprobación
   posterior de `dmcheck` case por descripción).
-- Distribución de teclado efectiva en el greeter de SDDM y en Hyprland.
+- Distribución de teclado efectiva en el greeter de SDDM (en Hyprland ya
+  confirmado: `us`, ver hallazgo 4).
 - Comportamiento con NVIDIA (`chwd` + `/etc/profile.d/Hyprland.sh`).
