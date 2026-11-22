@@ -22,3 +22,5 @@ file_permissions["/etc/pixmatic/settings.jsonc"]="0:0:600"
 # Instalador propio (mkarchiso no conserva el modo de los ficheros del overlay)
 file_permissions["/usr/local/bin/pixmatic-install"]="0:0:755"
 file_permissions["/usr/local/bin/pixmatic-menu"]="0:0:755"
+file_permissions["/usr/local/bin/pixmatic-rescue"]="0:0:755"
+file_permissions["/usr/local/lib/pixmatic/boot.sh"]="0:0:644"

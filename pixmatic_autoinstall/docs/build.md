@@ -99,8 +99,10 @@ en tty1 y al entrar por SSH;
 [decisiones.md §10](decisiones.md#10-menú-del-live-2026-11-17)): instalar
 (elegir disco de la lista y confirmar el borrado; al terminar, reiniciar,
 apagar o consola), editar `settings.jsonc` (`/etc/pixmatic/settings.jsonc`,
-con sus comentarios), modo consola o apagar. **No instala nada sin
-confirmación.** El menú ejecuta `pixmatic-install <disco>` (contraseñas tal
+con sus comentarios), regenerar el arranque o abrir una consola en un
+sistema ya instalado (`pixmatic-rescue`,
+[decisiones.md §11](decisiones.md#11-rescate-desde-el-live-2026-11-22)),
+modo consola o apagar. **No instala nada sin confirmación.** El menú ejecuta `pixmatic-install <disco>` (contraseñas tal
 cual de `user_pass`/`root_pass`; log en `/var/log/pixmatic-install.log`,
 copiado también al sistema instalado).
 

@@ -11,6 +11,11 @@
 #     la consola.
 #   - Editar configuración: nano sobre settings.jsonc; al cerrarlo se valida y
 #     se vuelve al menú.
+#   - Regenerar arranque: elegir un sistema instalado y ejecutar
+#     "pixmatic-rescue boot <disco>" (regenera la UKI y recrea la entrada
+#     UEFI). Para cuando el firmware pierde la entrada o la UKI no arranca.
+#   - Consola en el sistema instalado: "pixmatic-rescue shell <disco>", un
+#     shell en el chroot del sistema instalado; al salir se vuelve al menú.
 #   - Modo consola: sale del menú y deja el prompt.
 #   - Apagar equipo.
 
@@ -86,6 +91,46 @@ edit_config() {
     rm -f "${backup}"
 }
 
+# Un solo instalador o rescate a la vez (el menú se abre en tty1 y en cada
+# SSH; los dos usan /mnt). Deja el cerrojo en el descriptor 9.
+take_lock() {
+    exec 9> "${lock}"
+    flock -n 9 && return 0
+    dlg --title "Operación en curso" --msgbox \
+        "Ya hay una instalación o un rescate en marcha desde otra sesión." 7 60
+    exec 9>&-
+    return 1
+}
+
+# Rescate de un sistema instalado (pixmatic-rescue boot|shell): elegir el
+# disco entre los que tienen un sistema instalado y ejecutarlo. Al terminar
+# (bien o mal) se vuelve al menú.
+rescue() {  # boot | shell
+    local action="$1" disks=() items=() line name size model dev title rc
+    mapfile -t disks < <(pixmatic-rescue list)
+    if (( ${#disks[@]} == 0 )); then
+        dlg --title "Sin sistemas instalados" --msgbox \
+            "No se ha encontrado ningún disco con un sistema instalado (ESP y raíz x86-64)." 8 60
+        return
+    fi
+    for line in "${disks[@]}"; do
+        IFS=$'\t' read -r name size model <<< "${line}"
+        items+=("${name}" "$(printf '%8s  %s' "${size}" "${model}")")
+    done
+    [[ ${action} == boot ]] && title="Regenerar arranque" || title="Consola en el sistema instalado"
+    dev="$(dlg --stdout --title "${title}" \
+               --ok-label "Seleccionar" --cancel-label "Volver" \
+               --menu "Elige el disco del sistema instalado:" 15 70 8 "${items[@]}")" || return
+
+    take_lock || return
+    clear
+    pixmatic-rescue "${action}" "${dev}"
+    rc=$?
+    exec 9>&-
+    (( rc == 0 )) || printf '\n*** pixmatic-rescue ha FALLADO (código %s); el error está arriba.\n' "${rc}"
+    read -rp $'\nPulsa Intro para volver al menú. '
+}
+
 start_install() {
     local disks=() items=() line name size model dev choice
     if ! config_ok; then
@@ -130,14 +175,7 @@ ${parts}
 
 ¿Continuar con la instalación?" 0 0 || return
 
-    # Un solo instalador a la vez (el menú se abre en tty1 y en cada SSH)
-    exec 9> "${lock}"
-    if ! flock -n 9; then
-        dlg --title "Instalación en curso" --msgbox \
-            "Ya hay una instalación en marcha desde otra sesión." 7 60
-        exec 9>&-
-        return
-    fi
+    take_lock || return
 
     clear
     if ! pixmatic-install "${dev}"; then
@@ -166,14 +204,17 @@ ${parts}
 
 while true; do
     choice="$(dlg --stdout --title "Instalador" --no-cancel \
-                  --menu "¿Qué quieres hacer?" 13 60 4 \
+                  --menu "¿Qué quieres hacer?" 15 60 6 \
                   install  "Iniciar instalación" \
                   edit     "Editar configuración" \
+                  boot     "Regenerar arranque" \
+                  shell    "Consola en el sistema instalado" \
                   console  "Modo consola" \
                   poweroff "Apagar equipo")" || continue   # Esc: se queda en el menú
     case "${choice}" in
         install) start_install ;;
         edit) edit_config ;;
+        boot|shell) rescue "${choice}" ;;
         console) to_console ;;
         poweroff) clear; systemctl poweroff; exit 0 ;;
     esac

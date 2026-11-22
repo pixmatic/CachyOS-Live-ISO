@@ -10,7 +10,7 @@
 //
 // Solo hay claves para lo que es configurable. Lo demás lo fija el script
 // según pixmatic_autoinstall/docs/decisiones.md: particionado (ESP de 2 GiB +
-// LUKS2 + btrfs con subvolúmenes), linux-cachyos, systemd-boot, paquetes de
+// LUKS2 + btrfs con subvolúmenes), linux-cachyos, UKI sin gestor de arranque, paquetes de
 // Calamares, grupos del usuario, shell fish, reloj en UTC, chwd...
 //
 // Reglas de edición:

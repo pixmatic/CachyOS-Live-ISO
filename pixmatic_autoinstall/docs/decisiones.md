@@ -115,7 +115,9 @@ Cierran los puntos de decisión de
   initramfs con systemd y `sd-encrypt`). El TPM2 es la Fase 5.
 - **Sin `/etc/fstab`**: montajes «a la manera moderna» de systemd
   (Discoverable Partitions Specification + `systemd-gpt-auto-generator`, que
-  systemd-boot habilita al exportar `LoaderDevicePartUUID`). Implica:
+  se habilita al exportar `LoaderDevicePartUUID`: lo hacía systemd-boot y,
+  desde el arranque directo con UKI (§9), lo hace systemd-stub si no lo ha
+  puesto un gestor de arranque, man `systemd-stub`). Implica:
   - tipos GPT correctos: ESP `C12A7328-F81F-11D2-BA4B-00A0C93EC93B` (se monta
     sola en `/boot` con automount) y raíz x86-64
     `4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709` (no el `0FC63DAF…` genérico que
@@ -144,9 +146,7 @@ Cierran los puntos de decisión de
   - Descartados: `systemd.mount-extra=` (montajes en la cmdline, que crece y
     obliga a regenerar entradas) y subvolúmenes anidados en `@` (no necesitan
     montaje, pero un rollback deja fuera `/home`, `/var/log`…).
-  - Entradas de systemd-boot sin `root=`: las escribe el instalador desde
-    `/etc/kernel/cmdline`, porque `systemd-boot-manager` 21 añade
-    `root=UUID=…` (§9).
+  - Cmdline sin `root=`: `/etc/kernel/cmdline` va dentro de la UKI (§9).
 
 ## 5. Paquetes: un único `pacstrap`
 
@@ -172,14 +172,13 @@ Cierran los puntos de decisión de
   §9).
 - **Pasos aparte**, solo donde hay dependencia real: `chwd -a` (detecta el
   hardware desde el target y usa su propio pacman; puede añadir NVIDIA y
-  regenerar el initramfs); bootloader (`bootctl install`, entradas y, si se
-  usa, `systemd-boot-manager`, cuyos hooks esperan systemd-boot ya en la ESP;
-  NCI también lo separa); tema visual de Hyprland (ficheros en el `$HOME` del
+  regenerar el initramfs); entrada UEFI con `efibootmgr` (la UKI ya la deja
+  el `pacstrap`, §9); tema visual de Hyprland (ficheros en el `$HOME` del
   usuario, o en chezmoi en la Fase 6).
 - **Orden**: preparar configuración → llaveros de los repos extra en el live
   → `pacstrap` único → ajustes del sistema → crear usuario → ajustes del
   usuario (`kb_layout` en la config de Hyprland, tema) → `chwd` →
-  bootloader.
+  entrada UEFI.
 - Verificar en VM: que el hook de `mkinitcpio` corre al final de la
   transacción (con `plymouth` ya instalado) y que el drop-in de
   `mkinitcpio.conf.d/` sustituye a los `HOOKS` de `mkinitcpio.conf`.
@@ -443,14 +442,55 @@ sigue el orden de §5. Lo que concreta o cambia respecto a lo anterior:
   `Options=subvol=@x,noatime,compress=zstd:1` (como cada línea del `fstab` de
   Calamares). La raíz recibe lo mismo por `rootflags=`.
 - **`/etc/kernel/cmdline`**: `rw rootflags=noatime,compress=zstd:1
-  zswap.enabled=0`.
+  zswap.enabled=0` (desde el 2026-11-22, también `nowatchdog quiet` y
+  `splash` si se instala `plymouth`, ver la entrada de UKI más abajo).
 - **`/` monta con `nodev`** (visto en la VM, 2026-11-17) sin pedirlo: lo
   pone `systemd-gpt-auto-generator` (la cadena está en su binario, no en su
   manual; sin confirmar en el código). Solo impide usar nodos de dispositivo
   guardados en la raíz; `/dev` es devtmpfs aparte. Se acepta como
   comportamiento de gpt-auto.
+- **Arranque directo con UKI, sin gestor de arranque** (2026-11-22;
+  desviación deliberada de los dos oficiales, que usan systemd-boot con
+  `systemd-boot-manager`). Sustituye a la entrada siguiente.
+  - Se quita `systemd-boot-manager` del `pacstrap` y no se ejecuta `bootctl
+    install`: en la ESP no quedan `loader/` ni `EFI/systemd/`.
+  - Antes del `pacstrap` se escribe `/etc/mkinitcpio.d/linux-cachyos.preset`
+    (sin dueño; el hook de mkinitcpio solo lo crea desde
+    `/usr/share/mkinitcpio/hook.preset` si no existe): la plantilla de
+    mkinitcpio 42 (`PRESETS=('default')`, sin fallback, la misma que reciben
+    los oficiales) con
+    `default_uki="/boot/EFI/Linux/cachyos-linux-cachyos.efi"` en lugar de
+    `default_image`. mkinitcpio monta la UKI (systemd-stub de `systemd`,
+    `objcopy` de `binutils`, que llega por `base-devel`) con el microcódigo
+    (hook `microcode`) y la cmdline de `/etc/kernel/cmdline`. `ALL_kver` sigue
+    en `/boot/vmlinuz-linux-cachyos`: mkinitcpio lee de ahí la versión, así
+    que el hook sigue copiando el `vmlinuz` a la ESP aunque no se use.
+  - `/etc/kernel/cmdline` pasa a ser la cmdline completa: lo de antes más
+    los parámetros de Calamares (`bootloader.conf`: `quiet nowatchdog`;
+    `splash` con plymouth), una sola vez.
+  - Tras `chwd`, `pixmatic_boot_entry` (de
+    `/usr/local/lib/pixmatic/boot.sh`, compartida con `pixmatic-rescue`, §11):
+    `efibootmgr --create --disk <disco> --part 1 --label
+    CachyOS --loader '\EFI\Linux\cachyos-linux-cachyos.efi'`, sin argumentos
+    (sin Secure Boot, systemd-stub usaría los argumentos de la entrada en
+    lugar de la cmdline de la UKI); `--create` la pone la primera en
+    `BootOrder`. Antes se borran las entradas `CachyOS` que apuntan a esa
+    misma ruta (de instalaciones anteriores).
+  - Lo que se pierde: el menú (elegir kernel o editar la cmdline al
+    arrancar; queda el menú de arranque del firmware) y el *random seed* de
+    systemd-boot. Si el firmware pierde sus entradas (reset de la CMOS,
+    actualización de BIOS), el disco no arranca hasta recrear la entrada
+    desde el live (*Regenerar arranque*, §11): no hay `EFI/BOOT/BOOTX64.EFI`.
+    Tampoco hay UKI de reserva (fallback): si una UKI nueva no arranca, se
+    regenera o se arregla desde el live (§11). Se prefirió eso a tocar el
+    sistema instalado.
+  - Un kernel instalado más adelante tendría el preset de la plantilla
+    (initramfs, no UKI) y ninguna entrada UEFI: habría que añadir su preset
+    y su entrada a mano. Secure Boot (firmar la UKI) queda para la Fase 5.
+  - Sin probar en VM todavía (el usuario). La VM necesita NVRAM persistente
+    (OVMF con *vars*) para conservar la entrada.
 - **Entradas de systemd-boot escritas por el instalador** (2026-11-17, tras
-  la prueba en VM). Se auditó `sdboot-manage` de PKGBUILDS `master`
+  la prueba en VM; **sustituida** el 2026-11-22 por el arranque con UKI). Se auditó `sdboot-manage` de PKGBUILDS `master`
   (`systemd-boot-manager` **24**, que usa `/etc/kernel/cmdline` +
   `LINUX_OPTIONS` y no añade `root=`, `sdboot-manage:298-307`), pero el repo
   `cachyos` sirve la **21** (2026-11-17), que no lee `/etc/kernel/cmdline` y
@@ -504,7 +544,8 @@ accidentales es elegir el disco y confirmar el borrado.
 
 - **`pixmatic-menu`** (`archiso/airootfs/usr/local/bin/`, bash + `dialog`,
   paquete añadido al live). Opciones: *Iniciar instalación*, *Editar
-  configuración*, *Modo consola*, *Apagar equipo*. Esc no sale del menú.
+  configuración*, *Regenerar arranque* y *Consola en el sistema instalado*
+  (desde el 2026-11-22, §11), *Modo consola*, *Apagar equipo*. Esc no sale del menú.
 - **Arranque**: `/etc/profile.d/pixmatic-menu.sh` lo ejecuta (con `sudo` si
   no es root) una vez por sesión (`PIXMATIC_MENU_SHOWN`) en el login
   automático de `liveuser` en tty1 (el autologin de upstream, sin tocar) y en
@@ -544,3 +585,38 @@ accidentales es elegir el disco y confirmar el borrado.
   espera `\E[A`, 8 colores) cuando `TERM` empieza por `xterm`; en tty1
   (`linux`) no cambia. Comprobado en el live enviando ambas secuencias.
 - Textos del menú en español; los del instalador siguen en inglés.
+
+## 11. Rescate desde el live (2026-11-22)
+
+Con el arranque directo con UKI (§9) no hay menú ni UKI de reserva en el
+sistema instalado. En lugar de añadirlos, la ISO hace de medio de rescate.
+
+- **`pixmatic-rescue`** (`archiso/airootfs/usr/local/bin/`), con tres
+  órdenes: `list` (discos con ESP y raíz x86-64 por tipo GPT, en el formato
+  de la lista de discos del menú), `boot <disco>` y `shell <disco>`.
+- **Montaje** (`boot` y `shell`), igual que arranca el sistema: abre la raíz
+  LUKS2 como `/dev/mapper/pixmatic-rescue` (distinto del `root` del
+  instalador) probando la contraseña vacía y, si no vale, pidiéndola (frase
+  o clave de recuperación de la Fase 5); monta su **subvolumen por defecto**
+  en `/mnt` (`@`, o el que deje un `snapper rollback`), los subvolúmenes de
+  sus unidades `.mount` con `What=/dev/gpt-auto-root` (con sus `Options=`;
+  así sigue valiendo si se añaden montajes) y la ESP en `/mnt/boot` con
+  `fmask/dmask=0077`. Al terminar, bien o mal, desmonta y cierra solo lo que
+  ha abierto. Se niega si `/mnt` está en uso (una instalación fallida deja
+  ahí lo montado).
+- **`boot`**: comprueba que el preset de `linux-cachyos` tiene
+  `default_uki`, ejecuta `mkinitcpio -P` en el chroot y recrea la entrada
+  UEFI con `pixmatic_boot_entry` (la ESP por su `PARTN`). La función vive en
+  `/usr/local/lib/pixmatic/boot.sh`, que también usa `pixmatic-install`: la
+  entrada sale siempre igual, y borra antes las `CachyOS` que apuntan a la
+  misma UKI (activas o no).
+- **`shell`**: `arch-chroot /mnt /bin/bash`. Para lo que `boot` no arregla:
+  un kernel nuevo que no arranca (downgrade desde la caché de pacman, en
+  `@cache`), editar `/etc/kernel/cmdline` o los `HOOKS` y luego
+  `mkinitcpio -P`, arreglar `/etc`…
+- **Menú**: opciones *Regenerar arranque* y *Consola en el sistema
+  instalado* (§10): elegir el disco de la lista de `pixmatic-rescue list`,
+  ejecutarlo a pantalla completa y volver al menú (con aviso si falla). Usa
+  el mismo cerrojo que la instalación (las dos usan `/mnt`).
+- Textos de `pixmatic-rescue` en inglés, como el instalador.
+- Sin probar en VM todavía (el usuario).

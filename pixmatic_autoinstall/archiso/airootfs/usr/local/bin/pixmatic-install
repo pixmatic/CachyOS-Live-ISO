@@ -27,6 +27,9 @@
 set -Eeuo pipefail
 trap 'echo "ERROR: line ${LINENO}: ${BASH_COMMAND}" >&2' ERR
 
+# Entrada UEFI de la UKI, compartida con pixmatic-rescue
+. /usr/local/lib/pixmatic/boot.sh
+
 # --- Configuración ----------------------------------------------------------
 
 # Lo configurable sale de settings.jsonc; lo demás (particionado, kernel,
@@ -75,15 +78,16 @@ subvols=(@home:/home @root:/root @srv:/srv @cache:/var/cache @tmp:/var/tmp @log:
 # según la CPU, y los de los grupos de netinstall, según additional_packages
 # (abajo).
 pkgs=(
-    # Cal §7: pacstrap.conf (basePackages) + systemd-boot-manager. Incluye los
-    # del grupo oculto "CachyOS required" de netinstall (sin -lts).
+    # Cal §7: pacstrap.conf (basePackages), sin systemd-boot-manager (arranque
+    # directo con UKI, decisiones §9). Incluye los del grupo oculto "CachyOS
+    # required" de netinstall (sin -lts).
     base base-devel btrfs-progs cachyos-hooks cachyos-keyring cachyos-mirrorlist
     cachyos-v4-mirrorlist cachyos-v3-mirrorlist cachyos-rate-mirrors cachyos-settings
     cryptsetup device-mapper diffutils dosfstools e2fsprogs efibootmgr exfatprogs
     f2fs-tools inetutils jfsutils less linux-cachyos linux-cachyos-headers
     linux-firmware logrotate lsb-release lvm2 man-db man-pages mdadm chwd mkinitcpio
     netctl os-prober perl python s-nail sudo sysfsutils texinfo usbutils which
-    xfsprogs systemd-boot-manager
+    xfsprogs
     # NCI: snapper sin configurar (sin cachyos-snapper-support no hay snapshot)
     snapper btrfs-assistant
     # [chaotic-aur] (decisiones §6): llavero y mirrorlist en el sistema instalado
@@ -307,8 +311,7 @@ for entry in "${subvols[@]}"; do
     add_subvol_mount "${entry%%:*}" "${entry#*:}"
 done
 chmod 0750 "${mnt}/root"   # como Calamares (Cal §3)
-# fmask/dmask como monta gpt-auto la ESP (y para que bootctl no avise de que
-# random-seed es legible por todos)
+# fmask/dmask como monta gpt-auto la ESP
 mkdir -p "${mnt}/boot"
 mount -o fmask=0077,dmask=0077 "${esp}" "${mnt}/boot"
 
@@ -331,9 +334,30 @@ installs plymouth && plymouth_hook="plymouth "
 echo "HOOKS=(base systemd keyboard autodetect microcode modconf block sd-vconsole ${plymouth_hook}sd-encrypt filesystems)" \
     > "${mnt}/etc/mkinitcpio.conf.d/90-pixmatic.conf"
 
-# cmdline sin root= (gpt-auto) y sin nowatchdog/quiet/splash, que se añaden
-# de LINUX_OPTIONS de sdboot-manage.conf al escribir la entrada (paso 9)
-echo "rw rootflags=${opts} zswap.enabled=0" > "${mnt}/etc/kernel/cmdline"
+# cmdline completa, sin root= (gpt-auto): mkinitcpio la mete en la UKI. Los
+# parámetros de Calamares (bootloader.conf: quiet nowatchdog; splash si hay
+# plymouth) una sola vez, más los nuestros (decisiones §4 y §9)
+splash=""
+installs plymouth && splash=" splash"
+echo "rw rootflags=${opts} zswap.enabled=0 nowatchdog quiet${splash}" > "${mnt}/etc/kernel/cmdline"
+
+# Arranque directo con UKI, sin gestor de arranque (decisiones §9): el preset
+# de linux-cachyos es el de la plantilla de mkinitcpio 42 (hook.preset, solo
+# "default", sin fallback) con default_uki en lugar de default_image. El hook
+# de mkinitcpio solo crea el preset si no existe, así que la UKI sale en el
+# pacstrap, una sola vez. ALL_kver sigue en /boot: mkinitcpio lee de ahí la
+# versión del kernel (el hook copia el vmlinuz a la ESP, aunque no se use).
+mkdir -p "${mnt}"/{etc/mkinitcpio.d,boot/EFI/Linux}
+cat > "${mnt}/etc/mkinitcpio.d/linux-cachyos.preset" <<'EOF'
+# mkinitcpio preset file for the 'linux-cachyos' package
+# pixmatic-install: UKI en la ESP, arrancada directamente por el firmware
+
+ALL_kver="/boot/vmlinuz-linux-cachyos"
+
+PRESETS=('default')
+
+default_uki="/boot/EFI/Linux/cachyos-linux-cachyos.efi"
+EOF
 
 # gpt-auto ya desbloquea la raíz (/dev/gpt-auto-root-luks -> mapper "root"),
 # pero no admite opciones (ignora rd.luks.options=). Esta línea genera la
@@ -557,32 +581,18 @@ fi
 step "Running chwd"
 in_target chwd --autoconfigure
 
-# --- 9. Bootloader: systemd-boot + sdboot-manage (Cal §26, §29, NCI §18) -----
+# --- 9. Arranque: UKI en la ESP + entrada UEFI (decisiones §9) ---------------
 
-step "Installing systemd-boot"
-in_target bootctl install
-printf 'default @saved\ntimeout 5\nconsole-mode keep\n' > "${mnt}/boot/loader/loader.conf"
-# Una entrada por kernel, como "sdboot-manage gen" de systemd-boot-manager 24
-# (PKGBUILDS master): options = /etc/kernel/cmdline + LINUX_OPTIONS. El repo
-# sirve aún la 21, que no lee /etc/kernel/cmdline y escribe root=UUID,
-# rootflags=subvol=/@ y cryptdevice= (sin compresión ni snapper rollback;
-# decisiones §9). OVERWRITE_EXISTING="no" evita que su hook (al actualizar
-# el kernel) las sobrescriba; las rutas del kernel y del initramfs no
-# cambian. Quitar el apaño cuando el repo sirva la 24.
-linux_options="$(in_target bash -c '. /etc/sdboot-manage.conf; echo "${LINUX_OPTIONS}"')"
-cmdline="$(< "${mnt}/etc/kernel/cmdline") ${linux_options}"
-for vmlinuz in "${mnt}"/boot/vmlinuz-*; do
-    kernel="${vmlinuz##*/vmlinuz-}"
-    [[ -f ${mnt}/boot/initramfs-${kernel}.img ]] || die "missing initramfs for ${kernel}"
-    title="$(sed -e 's/-/ /g' -e 's/\b\(.\)/\u\1/g' -e 's/Rt/(Realtime)/g' -e 's/Cachyos/CachyOS/g' <<< "${kernel}")"
-    printf 'title %s\noptions %s\nlinux /vmlinuz-%s\ninitrd /initramfs-%s.img\n' \
-        "${title}" "${cmdline}" "${kernel}" "${kernel}" > "${mnt}/boot/loader/entries/${kernel}.conf"
-done
-install -Dm644 /dev/stdin "${mnt}/etc/sdboot-manage.conf.d/90-pixmatic.conf" <<'EOF'
-# pixmatic-install: no sobrescribir las entradas escritas desde
-# /etc/kernel/cmdline (systemd-boot-manager 21 no lo lee)
-OVERWRITE_EXISTING="no"
-EOF
+step "Creating the UEFI boot entry"
+# Sin gestor de arranque: el firmware carga la UKI (systemd-stub + kernel +
+# initramfs + cmdline), que generó mkinitcpio en el pacstrap (o chwd al
+# regenerar). systemd-stub exporta LoaderDevicePartUUID, así que gpt-auto
+# sigue encontrando la ESP y la raíz. La entrada (sin argumentos) la crea
+# pixmatic_boot_entry de /usr/local/lib/pixmatic/boot.sh; la ESP es la
+# partición 1. Si el firmware la pierde, pixmatic-rescue la recrea desde el
+# live (menú: "Regenerar arranque").
+[[ -s ${mnt}/boot/${pixmatic_uki} ]] || die "missing UKI in the ESP"
+pixmatic_boot_entry "${disk}" 1
 
 # --- 10. Limpieza (decisiones §3: target sin restos) --------------------------
 
@@ -590,7 +600,9 @@ step "Cleaning up"
 rm -rf "${mnt}"/var/cache/pacman/pkg/*
 pacnew="$(find "${mnt}/etc" -name '*.pacnew')"
 [[ -z ${pacnew} ]] || echo "WARNING: .pacnew files left in the target:"$'\n'"${pacnew}"
-echo "Entries:" && grep -H '' "${mnt}"/boot/loader/entries/*.conf
+echo "UKI:" && ls -l "${mnt}"/boot/EFI/Linux/
+echo "cmdline: $(< "${mnt}/etc/kernel/cmdline")"
+efibootmgr
 cp "${log}" "${mnt}/var/log/pixmatic-install.log"   # para depurar (versión de pruebas)
 
 umount -R "${mnt}"

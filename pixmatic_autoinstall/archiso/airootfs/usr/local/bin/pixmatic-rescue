@@ -1,0 +1,154 @@
+#!/bin/bash
+#
+# pixmatic-rescue: rescate, desde el live, de un sistema instalado con
+# pixmatic-install (decisiones §11). Lo lanza pixmatic-menu ("Regenerar
+# arranque" y "Consola en el sistema instalado").
+#
+# Uso:
+#   pixmatic-rescue list           discos con un sistema instalado: los que
+#                                  tienen ESP y raíz x86-64 (tipos GPT de la
+#                                  Discoverable Partitions Specification);
+#                                  una línea por disco: nombre, tamaño y
+#                                  modelo, separados por tabuladores
+#   pixmatic-rescue boot <disco>   regenera la UKI (mkinitcpio -P en el
+#                                  chroot) y recrea la entrada UEFI
+#   pixmatic-rescue shell <disco>  shell en el chroot del sistema instalado
+#
+# boot y shell montan el sistema como arranca: la raíz LUKS2 (prueba la
+# contraseña vacía y, si no vale, la pide), su subvolumen por defecto en
+# /mnt, los subvolúmenes de sus unidades .mount y la ESP en /mnt/boot. Al
+# terminar, bien o mal, lo desmonta todo y cierra el LUKS.
+
+set -Eeuo pipefail
+trap 'echo "ERROR: line ${LINENO}: ${BASH_COMMAND}" >&2' ERR
+
+# Entrada UEFI de la UKI, compartida con pixmatic-install
+. /usr/local/lib/pixmatic/boot.sh
+
+esp_type="c12a7328-f81f-11d2-ba4b-00a0c93ec93b"
+root_type="4f68bce3-e8cd-4db1-96e7-fbcaf984b709"   # raíz x86-64
+mnt="/mnt"
+mapper="pixmatic-rescue"   # distinto del "root" que usa pixmatic-install
+
+step() { printf '\n==> %s\n' "$*"; }
+die() { echo "ERROR: $*" >&2; exit 1; }
+usage() { echo "Usage: pixmatic-rescue list | boot <disk> | shell <disk>" >&2; exit 1; }
+
+# Primera partición de <disco> con el tipo GPT <tipo> (JSON: PARTTYPE puede
+# venir vacío y descolocar las columnas)
+part_of_type() {  # <disco> <tipo>
+    lsblk -Jpo NAME,TYPE,PARTTYPE "$1" | jq -r --arg t "$2" '
+        [.. | objects | select(.type == "part" and ((.parttype // "") | ascii_downcase) == $t)
+         | .name][0] // empty'
+}
+
+list_installed() {
+    local name size model
+    while IFS=$'\t' read -r name size model; do
+        [[ -n $(part_of_type "${name}" "${esp_type}") && -n $(part_of_type "${name}" "${root_type}") ]] \
+            && printf '%s\t%s\t%s\n' "${name}" "${size}" "${model}"
+    done < <(lsblk -Jdpo NAME,SIZE,TYPE,MODEL \
+                 | jq -r '.blockdevices[] | select(.type == "disk") | [.name, .size, (.model // "")] | @tsv')
+    return 0
+}
+
+# Desmonta y cierra solo lo que haya abierto este script
+esp=""
+opened=false
+mounted=false
+cleanup() {
+    if [[ ${mounted} == true ]]; then
+        umount -R "${mnt}" || echo "WARNING: could not unmount ${mnt}" >&2
+    fi
+    if [[ ${opened} == true ]]; then
+        cryptsetup close "${mapper}" || echo "WARNING: could not close ${mapper}" >&2
+    fi
+}
+trap cleanup EXIT
+
+mount_installed() {  # <disco>
+    local disk="$1" root dev keyfile unit what where type options
+    esp="$(part_of_type "${disk}" "${esp_type}")"
+    root="$(part_of_type "${disk}" "${root_type}")"
+    [[ -n ${esp} && -n ${root} ]] || die "${disk}: no ESP and x86-64 root partitions"
+    ! mountpoint -q "${mnt}" || die "${mnt} is in use (an installation in progress?)"
+
+    step "Mounting the installed system from ${disk}"
+    if [[ $(lsblk -dno FSTYPE "${root}") == crypto_LUKS ]]; then
+        [[ ! -e /dev/mapper/${mapper} ]] || die "/dev/mapper/${mapper} is already open"
+        # Contraseña vacía, como la deja pixmatic-install hasta la Fase 5;
+        # si no vale, cryptsetup la pide (frase o clave de recuperación)
+        keyfile="$(mktemp)"
+        if ! cryptsetup open --key-file "${keyfile}" "${root}" "${mapper}" 2> /dev/null; then
+            echo "The LUKS passphrase is not empty."
+            cryptsetup open "${root}" "${mapper}"
+        fi
+        rm -f "${keyfile}"
+        opened=true
+        dev="/dev/mapper/${mapper}"
+    else
+        dev="${root}"
+    fi
+
+    # Subvolumen por defecto: el que arranca (@, o el que haya dejado un
+    # snapper rollback)
+    mount "${dev}" "${mnt}"
+    mounted=true
+    # Subvolúmenes de las unidades .mount del sistema (decisiones §4)
+    for unit in "${mnt}"/etc/systemd/system/*.mount; do
+        [[ -f ${unit} ]] || continue
+        what="" where="" type="" options=""
+        while IFS='=' read -r key value; do
+            case "${key}" in
+                What) what="${value}" ;;
+                Where) where="${value}" ;;
+                Type) type="${value}" ;;
+                Options) options="${value}" ;;
+            esac
+        done < "${unit}"
+        [[ ${what} == /dev/gpt-auto-root && -n ${where} ]] || continue
+        mkdir -p "${mnt}${where}"
+        mount -t "${type:-btrfs}" -o "${options}" "${dev}" "${mnt}${where}"
+    done
+    # ESP como la monta gpt-auto
+    mkdir -p "${mnt}/boot"
+    mount -o fmask=0077,dmask=0077 "${esp}" "${mnt}/boot"
+    findmnt -R -o TARGET,SOURCE,OPTIONS "${mnt}"
+}
+
+regenerate_boot() {  # <disco>
+    local disk="$1" preset
+    mount_installed "${disk}"
+    preset="${mnt}/etc/mkinitcpio.d/linux-cachyos.preset"
+    grep -q '^default_uki=' "${preset}" 2> /dev/null \
+        || die "${preset#"${mnt}"} has no default_uki: not a system that boots from a UKI"
+
+    step "Regenerating the UKI"
+    arch-chroot "${mnt}" mkinitcpio -P
+    [[ -s ${mnt}/boot/${pixmatic_uki} ]] || die "missing UKI in the ESP"
+    ls -l "${mnt}/boot/${pixmatic_uki}"
+    echo "cmdline: $(< "${mnt}/etc/kernel/cmdline")"
+
+    step "Creating the UEFI boot entry"
+    pixmatic_boot_entry "${disk}" "$(lsblk -dno PARTN "${esp}")"
+    efibootmgr
+
+    step "Boot regenerated"
+}
+
+installed_shell() {  # <disco>
+    mount_installed "$1"
+    step "Shell in the installed system (exit to leave; ${mnt} is unmounted afterwards)"
+    arch-chroot "${mnt}" /bin/bash || true
+}
+
+[[ ${EUID} -eq 0 ]] || die "Run as root"
+check_disk() { [[ -b $1 && $(lsblk -dno TYPE "$1") == disk ]] || die "$1 is not a disk"; }
+# Las funciones se llaman como órdenes sueltas, nunca dentro de && / || /
+# if: ahí bash desactiva errexit también dentro de la función
+case "${1:-}" in
+    list) (( $# == 1 )) || usage; list_installed ;;
+    boot) (( $# == 2 )) || usage; check_disk "$2"; regenerate_boot "$2" ;;
+    shell) (( $# == 2 )) || usage; check_disk "$2"; installed_shell "$2" ;;
+    *) usage ;;
+esac

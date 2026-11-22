@@ -89,8 +89,21 @@ Instaladores oficiales (Calamares con Hyprland, `cachyos-installer` con
       `crypttab.initramfs` obsoleto en mkinitcpio 42.
 - [ ] Probar en VM y depurar (el usuario): arranque sin pedir clave, montajes
       por gpt-auto y unidades `.mount`, initramfs generado una vez con el tema
-      de Plymouth, entradas de systemd-boot sin duplicados, `[chaotic-aur]`
-      en el `pacman.conf` instalado, sin `.pacnew`.
+      de Plymouth, `[chaotic-aur]` en el `pacman.conf` instalado, sin
+      `.pacnew`.
+- [x] Arranque directo con UKI, sin systemd-boot (2026-11-22,
+      decisiones §9): preset de mkinitcpio con `default_uki`, cmdline
+      completa en `/etc/kernel/cmdline` y entrada UEFI con `efibootmgr`.
+- [x] Rescate desde el live (2026-11-22, decisiones §11):
+      `pixmatic-rescue` y opciones del menú *Regenerar arranque* y *Consola
+      en el sistema instalado*.
+- [ ] Probar en VM el rescate (el usuario): borrar la entrada UEFI
+      (`efibootmgr -b XXXX -B`) y recrearla con *Regenerar arranque*; la
+      consola monta los subvolúmenes y la ESP y desmonta al salir.
+- [ ] Probar en VM el arranque con UKI (el usuario): arranca sin menú, la
+      cmdline (`/proc/cmdline`) es la de `/etc/kernel/cmdline`, gpt-auto
+      monta la ESP en `/boot` y la raíz, y tras reinstalar `linux-cachyos`
+      se regenera la UKI.
 - [x] Grupo "Hyprland" de `additional_packages`: si `sddm` queda instalado,
       `systemctl enable sddm` (como `dmcheck` de Calamares) y `kb_layout` de
       `xkbmap` al final del `hyprland.lua` del usuario. Desde 2026-11-22:
