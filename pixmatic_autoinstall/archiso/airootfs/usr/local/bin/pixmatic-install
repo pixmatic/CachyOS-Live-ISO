@@ -56,8 +56,6 @@ locale="$(cfg locale)"
 xkbmap="$(cfg xkbmap)"
 console_keymap="$(cfg console_keymap "${xkbmap}")"
 timezone="$(cfg timezone)"
-firewall="$(cfg firewall false)"
-ssh_server="$(cfg ssh_server false)"
 mapfile -t extra_pkgs < <(jq -r '.extra_packages // [] | .[]' <<< "${json}")
 username="$(cfg user_name)"
 user_fullname="$(cfg user_fullname "")"
@@ -74,9 +72,8 @@ opts="noatime,compress=zstd:1"        # montaje de btrfs (Calamares en NVMe, NCI
 subvols=(@home:/home @root:/root @srv:/srv @cache:/var/cache @tmp:/var/tmp @log:/var/log)
 
 # Paquetes del pacstrap único: las listas de Calamares (cachyos-staging) sin el
-# kernel -lts, más snapper y btrfs-assistant (de NCI). El microcódigo se añade
-# según la CPU, y los de los grupos de netinstall, según additional_packages
-# (abajo).
+# kernel -lts, más snapper (de NCI). El microcódigo se añade según la CPU, y
+# los de los grupos de netinstall, según additional_packages (abajo).
 pkgs=(
     # Cal §7: pacstrap.conf (basePackages), sin systemd-boot-manager (arranque
     # directo con UKI, decisiones §9). Incluye los del grupo oculto "CachyOS
@@ -88,8 +85,9 @@ pkgs=(
     linux-firmware logrotate lsb-release lvm2 man-db man-pages mdadm chwd mkinitcpio
     netctl os-prober perl python s-nail sudo sysfsutils texinfo usbutils which
     xfsprogs
-    # NCI: snapper sin configurar (sin cachyos-snapper-support no hay snapshot)
-    snapper btrfs-assistant
+    # NCI: snapper sin configurar (sin cachyos-snapper-support no hay snapshot);
+    # sin btrfs-assistant (GUI Qt6; snapper y btrfs-progs bastan, decisiones §3)
+    snapper
     # [chaotic-aur] (decisiones §6): llavero y mirrorlist en el sistema instalado
     chaotic-keyring chaotic-mirrorlist
     # settings.jsonc: extra_packages
@@ -110,12 +108,9 @@ mapfile -t group_pkgs < <(jq -r '[paths(type == "boolean") as $p | select(getpat
 groups="$(jq -r '[paths(type == "boolean") as $p | select(getpath($p)) | $p[0]] | unique | join(", ")' <<< "${tree}")"
 pkgs+=("${group_pkgs[@]}")
 
-# Dependencias de lo fijo del script: fish es la shell del usuario (llega por
-# cachyos-fish-config si está marcado), ufw lo necesita "firewall" y openssh,
-# "ssh_server"
+# Dependencia de lo fijo del script: fish es la shell del usuario (llega por
+# cachyos-fish-config si está marcado)
 [[ " ${pkgs[*]} " == *" cachyos-fish-config "* ]] || pkgs+=(fish)
-[[ ${firewall} == true ]] && pkgs+=(ufw)
-[[ ${ssh_server} == true ]] && pkgs+=(openssh)
 
 # [chaotic-aur] (decisiones §6): claves de firma (huellas completas,
 # verificadas en docs/auditoria-omarchy.md) y servidores para el pacstrap (el
@@ -480,25 +475,20 @@ done
 if [[ -e ${mnt}/usr/lib/systemd/system/sddm.service ]]; then
     systemctl --root="${mnt}" enable sddm.service
 fi
-# ufw (Cal §30) según "firewall". Las políticas por defecto del paquete ya son
-# deny incoming / allow outgoing; se marca ENABLED=yes en vez de ejecutar
-# "ufw enable", que dentro del chroot cargaría las reglas en el kernel del
-# live y cortaría el SSH (Cal, hallazgo 8). Mismo estado final.
-if [[ ${firewall} == true ]]; then
+# ufw (Cal §30): como Calamares, se activa si está instalado (subgrupo
+# "firewall" de additional_packages). Las políticas por defecto del paquete
+# ya son deny incoming / allow outgoing; se marca ENABLED=yes en vez de
+# ejecutar "ufw enable", que dentro del chroot cargaría las reglas en el
+# kernel del live y cortaría el SSH (Cal, hallazgo 8). Mismo estado final.
+if installs ufw; then
     systemctl --root="${mnt}" enable ufw
     sed -i 's/^ENABLED=no$/ENABLED=yes/' "${mnt}/etc/ufw/ufw.conf"
 fi
-# Servidor SSH permisivo según "ssh_server" (desviación deliberada: los
-# oficiales no activan sshd), para depurar desde el primer arranque. Con
-# usuario y contraseña, también root. El sshd_config de Arch incluye
-# sshd_config.d/*.conf antes de sus valores y PasswordAuthentication yes es el
-# valor por defecto; se repite para no depender de ello.
-if [[ ${ssh_server} == true ]]; then
-    install -Dm644 /dev/stdin "${mnt}/etc/ssh/sshd_config.d/20-pixmatic.conf" <<'EOF'
-# pixmatic-install ("ssh_server": true): acceso con contraseña, también root
-PermitRootLogin yes
-PasswordAuthentication yes
-EOF
+# sshd si openssh está instalado (subgrupo "Some applications selection").
+# Desviación deliberada (decisiones §8): Calamares lo instala pero no lo
+# activa. Con el sshd_config del paquete (root sin contraseña no entra; el
+# usuario, con contraseña). Con ufw activo, el puerto 22 queda bloqueado.
+if installs openssh; then
     systemctl --root="${mnt}" enable sshd.service
 fi
 

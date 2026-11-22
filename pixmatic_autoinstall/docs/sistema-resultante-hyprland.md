@@ -58,7 +58,7 @@ comparación.
 | Cifrado | LUKS2; desbloqueo en el initrd por gpt-auto (`gpt-auto-root-luks` → `/dev/mapper/root`). Fase 5: TPM2. |
 | btrfs | `@` como subvolumen por defecto (`set-default`); resto de subvolúmenes planos (hermanos de `@`) montados con **unidades `.mount`** en `/etc/systemd/system/` (`What=/dev/gpt-auto-root`, `Options=subvol=@x`). **Sin `/etc/fstab`**. `/tmp` por `tmp.mount`. |
 | cmdline | `/etc/kernel/cmdline` sin `root=` ni `subvol=`; `rootflags=noatime,compress=zstd:1` y sin duplicados. Entrada escrita por el instalador: `systemd-boot-manager` 21 ignora `/etc/kernel/cmdline` (decisiones §9). |
-| Paquetes | **Un único `pacstrap`**: base + `linux-cachyos` (+ headers, sin `-lts`) + conjunto oficial de Calamares + `snapper` y `btrfs-assistant` (de NCI). Caché vacía al terminar, sin `.pacnew`. |
+| Paquetes | **Un único `pacstrap`**: base + `linux-cachyos` (+ headers, sin `-lts`) + conjunto oficial de Calamares + `snapper` (de NCI, sin `btrfs-assistant`). Caché vacía al terminar, sin `.pacnew`. |
 | Repos | `pacman.conf` de Calamares: repos optimizados (`-v3`/`-v4`/`znver4` según CPU) y `SigLevel` global, sin `Optional TrustAll`. |
 | initramfs | `HOOKS` en un drop-in de `/etc/mkinitcpio.conf.d/` (systemd, `sd-vconsole`, `plymouth`, `sd-encrypt`), generado una sola vez. |
 | Plymouth | hook + tema de CachyOS. |

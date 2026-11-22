@@ -116,13 +116,13 @@ Instaladores oficiales (Calamares con Hyprland, `cachyos-installer` con
       ([decisiones.md §8](decisiones.md#8-configuración-del-instalador-settingsjsonc)).
 - [x] Programas adicionales (`extra_packages`), grupos y paquetes de
       netinstall de Calamares (`additional_packages`; Firefox e Hyprland
-      activos), `console_keymap`, `firewall`, `user_fullname`.
+      activos), `console_keymap`, `user_fullname`. `firewall` y
+      `ssh_server` se quitaron el 2026-11-22: deciden las casillas `ufw` y
+      `openssh` (esta, además, activa sshd; desviación).
 - [ ] Claves de la personalización «omarchy» (activar/desactivar;
       aplicaciones y temas, todos comentados), tras cerrar la Fase 3.
 - [x] Instalador sin preguntas (2026-11-17): sin confirmación y con las
       contraseñas tal cual de `settings.jsonc`.
-- [x] `ssh_server`: sshd activo en el sistema instalado con usuario y
-      contraseña, también root (para depurar en VM; quitar al terminar).
 - [ ] Inyección de contraseñas sin publicarlas (el repo es público).
 - [x] Menú al entrar en el live, en tty1 y por SSH (2026-11-17,
       `pixmatic-menu`,

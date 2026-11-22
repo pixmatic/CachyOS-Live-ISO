@@ -109,19 +109,6 @@
     // Valores: los de "timedatectl list-timezones" ("Europe/Madrid"...).
     "timezone": "Europe/Madrid",
 
-    // Cortafuegos ufw (se instala siempre). true: activo con las políticas
-    // del paquete (deny incoming, allow outgoing), como los instaladores
-    // oficiales.
-    // Valores: true | false. Por defecto: false.
-    "firewall": false,
-
-    // Servidor SSH activo en el sistema instalado, con acceso por usuario y
-    // contraseña, también como root (PermitRootLogin yes). Para depurar desde
-    // el primer arranque; los instaladores oficiales no lo activan. Con
-    // "firewall": true, ufw bloquea el puerto 22.
-    // Valores: true | false. Por defecto: false.
-    "ssh_server": true,
-
     // Grupos de paquetes de netinstall de Calamares (cachyos-staging), dentro
     // del pacstrap único: grupo -> (subgrupo ->) paquete: true | false. Se
     // instalan los paquetes a true, como al marcar/desmarcar en Calamares. Un
@@ -136,22 +123,27 @@
     // Hyprland (fuera también "Accessibility Tools": orca y mousetweaks).
     // "CachyOS required" va fijo en el script. Sistema mínimo (2026-11-22):
     // a true solo lo imprescindible (red con NetworkManager, firmware, una
-    // fuente, nano, Hyprland y alacritty); lo demás, a false: es una
+    // fuente, micro con cachyos-micro-settings, Hyprland y alacritty) y,
+    // para el uso del equipo (multimedia y juegos, 2026-11-22), audio con
+    // PipeWire, códecs de GStreamer, Bluetooth (mandos), fuentes de emoji,
+    // CJK y Liberation, y xdg-utils/xdg-user-dirs; lo demás, a false: es una
     // desviación deliberada respecto a Calamares, que los preselecciona
     // (decisiones §8). Estas listas replican las de Calamares: lo que no esté
     // en ellas va en extra_packages.
     // Sin "cachyos-fish-config" se instala fish (la shell del usuario); sin
-    // "plymouth", el initramfs se genera sin su hook; con "firewall": true se
-    // instala ufw y con "ssh_server": true, openssh, aunque estén a false
-    // aquí. Los servicios de Calamares se activan solo si su paquete está
-    // instalado.
+    // "plymouth", el initramfs se genera sin su hook. Los servicios de
+    // Calamares se activan solo si su paquete está instalado: con "ufw", el
+    // cortafuegos queda activo (deny incoming, allow outgoing; bloquea el
+    // puerto 22). Con "openssh", sshd queda activo (desviación: Calamares no
+    // lo activa), con la config del paquete: el usuario entra con contraseña;
+    // root, no.
     "additional_packages": {
         "CachyOS Packages": {
             "cachyos-hello": false,
             "cachyos-kernel-manager": false,
             "cachyos-packageinstaller": false,
             "cachyos-settings": true,
-            "cachyos-micro-settings": false,
+            "cachyos-micro-settings": true,
             "cachyos-wallpapers": false
         },
         "CachyOS shell configuration": {
@@ -161,6 +153,7 @@
         "Base-devel + Common packages": {
             "Network": {
                 "dnsmasq": false,
+                // No es un paquete: pacman instala bind, que lo provee.
                 "dnsutils": false,
                 "ethtool": false,
                 "iwd": false,
@@ -178,10 +171,10 @@
                 "ufw-extras": false
             },
             "bluetooth": {
-                "bluez": false,
+                "bluez": true,
                 "bluez-hid2hci": false,
                 "bluez-libs": false,
-                "bluez-utils": false,
+                "bluez-utils": true,
                 "bluez-obex": false
             },
             "packages management": {
@@ -195,19 +188,21 @@
                 "accountsservice": false,
                 "bash-completion": false,
                 "ffmpegthumbnailer": false,
-                "gst-libav": false,
-                "gst-plugin-dav1d": false,
-                "gst-plugin-pipewire": false,
-                "gst-plugins-bad": false,
-                "gst-plugins-ugly": false,
+                "gst-libav": true,
+                "gst-plugin-dav1d": true,
+                "gst-plugin-pipewire": true,
+                "gst-plugins-bad": true,
+                "gst-plugins-ugly": true,
                 "libdvdcss": false,
                 "libgsf": false,
                 "libopenraw": false,
                 "plocate": false,
                 "poppler-glib": false,
+                // Metapaquete: los 16 vlc-plugin* (vlc-plugins-base, -extra,
+                // -video-output, -visualization y vlc-plugin-*).
                 "vlc-plugins-all": false,
-                "xdg-user-dirs": false,
-                "xdg-utils": false
+                "xdg-user-dirs": true,
+                "xdg-utils": true
             },
             "filesystem": {
                 "efitools": false,
@@ -219,37 +214,40 @@
             },
             "fonts": {
                 "awesome-terminal-fonts": false,
-                "noto-fonts-emoji": false,
+                "noto-fonts-emoji": true,
                 "cantarell-fonts": false,
                 "noto-fonts": true,
                 "ttf-bitstream-vera": false,
                 "ttf-dejavu": false,
-                "ttf-liberation": false,
+                "ttf-liberation": true,
                 "ttf-opensans": false,
                 "ttf-meslo-nerd": false,
-                "noto-fonts-cjk": false
+                "noto-fonts-cjk": true
             },
             "audio": {
                 "alsa-firmware": false,
                 "alsa-plugins": false,
-                "alsa-utils": false,
+                "alsa-utils": true,
                 "pavucontrol": false,
-                "pipewire-pulse": false,
-                "wireplumber": false,
-                "pipewire-alsa": false,
-                "realtime-privileges": false
+                "pipewire-pulse": true,
+                "wireplumber": true,
+                "pipewire-alsa": true,
+                "realtime-privileges": true
             },
             "hardware": {
                 "dmidecode": false,
                 "dmraid": false,
                 "hdparm": false,
                 "hwdetect": false,
+                // Metapaquete: los 12 linux-firmware-* (amd, amdgpu, atheros, broadcom,
+                // cirrus, intel, mediatek, nvidia, other, radeon, realtek, ti). Va
+                // también fijo en el pacstrap.
                 "linux-firmware": true,
                 "lsscsi": false,
                 "mesa-utils": false,
                 "mtools": false,
                 "sg3_utils": false,
-                "sof-firmware": false
+                "sof-firmware": true
             },
             "power": {
                 "cpupower": false,
@@ -274,7 +272,7 @@
                 "wget": false,
                 "ripgrep": false,
                 "micro": false,
-                "nano": true,
+                "nano": false,
                 "vim": false,
                 "openssh": false
             }
@@ -284,10 +282,11 @@
             "cachyos-plymouth-bootanimation": false,
             "cachyos-plymouth-theme": false
         },
-        // Escritorio. firefox-i18n-es-es: el $LOCALE de Calamares, pendiente de
-        // confirmar. A false en el sistema mínimo.
+        // Escritorio. A false en el sistema mínimo.
         "Firefox and language package": {
             "firefox": false,
+            // Calamares añade firefox-i18n-$LOCALE; que $LOCALE sea es-es está
+            // pendiente de confirmar.
             "firefox-i18n-es-es": false
         },
         // Escritorio. Desviación (decisiones §7): sin Noctalia

@@ -81,8 +81,11 @@ y se anota aquí.
     llena; la decisión se mantiene, pero ya no es «como NCI»), sin `.pacnew`,
     sin `remove-nvidia`, sin `/etc/default/*` ni el enlace roto
     `ly@tty2.service`;
-  - `snapper` + `btrfs-assistant`, y snapshot de instalación si está
-    `cachyos-snapper-support`;
+  - `snapper`, y snapshot de instalación si está `cachyos-snapper-support`;
+    **sin `btrfs-assistant`** (2026-11-22): NCI lo instala, pero es una GUI
+    Qt6 sin lanzador ni agente de polkit en este sistema, y `snapper` y
+    `btrfs-progs` cubren lo mismo desde la consola (Calamares con
+    systemd-boot no instala ninguno de los dos);
   - `ModemManager` **no se activa** (Calamares sí), 2026-11-16.
 - **Kernel único**: `linux-cachyos` (+ headers), sin `-lts` (como NCI;
   Calamares instala los dos).
@@ -333,16 +336,22 @@ añade estos repos.
   entonces) se quitaron el 2026-11-17: el disco y qué hacer al terminar se
   eligen en el menú (§10).
 - Claves nuevas: `console_keymap` (por defecto, `xkbmap`),
-  `firewall` (ufw; `false` por ahora), `user_fullname` (GECOS),
-  `extra_packages` y `additional_packages`. La clave `confirm` (pedir
+  `user_fullname` (GECOS), `extra_packages` y `additional_packages`. La clave `confirm` (pedir
   escribir YES antes de borrar el disco) se quitó el 2026-11-17: el
   instalador no hace ninguna pregunta.
-- `ssh_server` (2026-11-17, desviación deliberada para depurar; los
-  oficiales no activan sshd): instala `openssh` si falta, escribe
+- **Sin claves `firewall` ni `ssh_server`** (2026-11-22): las casillas
+  `ufw` y `openssh` de `additional_packages` deciden, como en Calamares. Con
+  `ufw` instalado se activa como en Cal §30 (ver §9). Con `openssh`
+  instalado se activa `sshd.service`: **desviación deliberada**, porque
+  Calamares lo instala pero no lo activa; si se marca, es para usarlo. Con el
+  `sshd_config` del paquete (`PermitRootLogin prohibit-password`,
+  `PasswordAuthentication yes`): el usuario entra con contraseña, root no.
+  Con `ufw` activo, el puerto 22 queda bloqueado. Antes, `firewall` activaba ufw y
+  `ssh_server` (2026-11-17, para depurar) instalaba `openssh`, escribía
   `/etc/ssh/sshd_config.d/20-pixmatic.conf` (`PermitRootLogin yes`,
-  `PasswordAuthentication yes`) y activa `sshd.service`. Acceso con usuario y
-  contraseña, también root. `true` en el `settings.jsonc` del repo mientras
-  se depura en VM. Con `firewall: true` ufw bloquearía el puerto 22.
+  `PasswordAuthentication yes`) y activaba `sshd.service`; ambas añadían su
+  paquete aunque la casilla estuviera a `false`. Para depurar desde el
+  primer arranque, marcar `openssh`.
 - **`additional_packages`** (2026-11-16): árbol con los grupos de netinstall
   de Calamares (`netinstall.yaml` de `cachyos-staging`), grupo → (subgrupo →)
   paquete: `true`/`false`, como se marcan en Calamares. Se instalan los
@@ -370,19 +379,39 @@ añade estos repos.
   - **Sistema mínimo** (2026-11-22; desviación deliberada): se mantienen
     todos los paquetes en el fichero, pero a `true` solo lo imprescindible:
     `networkmanager`, `wpa_supplicant`, `wireless-regdb`, `linux-firmware`,
-    `noto-fonts` (una fuente para Hyprland y alacritty), `nano` (un editor),
+    `noto-fonts` (una fuente para Hyprland y alacritty),
+    `cachyos-micro-settings` (el editor `micro`, que llega como su
+    dependencia, con la config de CachyOS; hasta el 2026-11-22, `nano`),
     `alacritty`, `cachyos-settings` (ya fijo en `pacstrap.conf`) y, en
-    *Hyprland*, solo `hyprland`. Los grupos replican las listas de
+    *Hyprland*, solo `hyprland`.
+  - **Uso multimedia y juegos** (2026-11-22, decisión del usuario): se
+    activan además, sin añadir aplicaciones, las casillas necesarias para
+    ese uso: audio (`pipewire-pulse`, `wireplumber`, `pipewire-alsa`,
+    `alsa-utils`, `sof-firmware`, `realtime-privileges`), códecs
+    (`gst-libav`, `gst-plugin-dav1d`, `gst-plugin-pipewire`,
+    `gst-plugins-bad`, `gst-plugins-ugly`), Bluetooth para mandos y audio
+    (`bluez`, `bluez-utils`; activa `bluetooth.service`), fuentes
+    (`noto-fonts-emoji`, `noto-fonts-cjk`, `ttf-liberation`, la que esperan
+    Steam y muchos juegos como sustituta de Arial) e integración
+    (`xdg-utils`, `xdg-user-dirs`). Siguen a `false`, por no hacer falta para
+    ese uso: `alsa-firmware`, `alsa-plugins`, `pavucontrol` (aplicación),
+    `libdvdcss` (sin lector de DVD), `vlc-plugins-all` (solo sirve con VLC),
+    `ffmpegthumbnailer` y el resto. Los drivers de la GPU (Mesa, Vulkan, y
+    sus versiones de 32 bits) los pone `chwd`, y Steam, Proton, gamemode,
+    etc. no están en ningún grupo: irán en `extra_packages` cuando se
+    elijan aplicaciones. `avahi` llega como dependencia (de
+    `pipewire-pulse`), y con él se activa `avahi-daemon`, como en
+    Calamares. Los grupos replican las listas de
     Calamares: lo que no esté en ellas iría en `extra_packages` (hoy
     vacío), no en un grupo. A `false` todo lo
     demás, incluidos *Plymouth* (initramfs sin su hook), `cachyos-fish-config`
     (se instala `fish` suelto), audio (PipeWire), Bluetooth y *Firefox*.
-    `openssh` y `ufw` siguen llegando por `ssh_server`/`firewall`.
+    También `openssh` y `ufw`: sin ellos no hay sshd ni cortafuegos.
   - Con Firefox activo, la instalación por defecto instala `firefox` y
     `firefox-i18n-es-es`, como Calamares (grupo preseleccionado no crítico).
     Comentarlo es una desviación.
   - Dependencias de lo fijo: sin `cachyos-fish-config` se instala `fish`
-    suelto (shell del usuario); con `firewall: true` se añade `ufw`. Como
+    suelto (shell del usuario). Como
     Calamares mira lo instalado, el script usa la lista resuelta por
     `pacman -Sp` (con dependencias): el hook `plymouth` y `plymouthd.conf`
     solo si se instala `plymouth` (aunque llegue como dependencia de un
@@ -508,9 +537,10 @@ sigue el orden de §5. Lo que concreta o cambia respecto a lo anterior:
   sobrescriba; las rutas no cambian. Un kernel instalado después tendría
   entrada al estilo de la 21. **Quitar el apaño cuando el repo sirva la 24**
   (vigilar `pacman -Si systemd-boot-manager`).
-- **ufw instalado pero desactivado por ahora** (decisión del usuario,
-  2026-11-16; desviación respecto a ambos oficiales, que lo activan): clave
-  `firewall: false`. Con `true`: `systemctl enable ufw` + `ENABLED=yes` en
+- **ufw según su casilla** (2026-11-22; antes, clave `firewall`, a
+  `false` desde el 2026-11-16): si `ufw` está instalado se activa, como en
+  Calamares; en el sistema mínimo está a `false` y no se instala. Al
+  activarlo: `systemctl enable ufw` + `ENABLED=yes` en
   `/etc/ufw/ufw.conf` (las políticas por defecto del paquete ya son *deny
   incoming* / *allow outgoing*), en vez de `ufw enable` en el chroot, que
   cargaría las reglas en el kernel del live y cortaría el SSH (hallazgo 8 de
@@ -526,8 +556,8 @@ sigue el orden de §5. Lo que concreta o cambia respecto a lo anterior:
   en la VM), y el sistema instalado `Include = /etc/pacman.d/chaotic-mirrorlist`; `chaotic-keyring` y
   `chaotic-mirrorlist` en el `pacstrap`.
 - Se replica de Calamares: paquetes (sus listas sin `-lts`, con `os-prober`,
-  `firefox-i18n-es-es` y el resto de grupos preseleccionados; + `snapper` y
-  `btrfs-assistant` de NCI), `/root` 0750, grupo `nopasswdlogin`,
+  `firefox-i18n-es-es` y el resto de grupos preseleccionados; + `snapper` de
+  NCI), `/root` 0750, grupo `nopasswdlogin`,
   `vconsole.conf` y `00-keyboard.conf`, bloque de `locale.gen` con `en_US`,
   `locale.conf`, `hosts`, `sudoers.d/10-installer`, `loader.conf`, servicios.
 - Se omite (NCI, o sin efecto): `/etc/timezone`, `/etc/default/{keyboard,locale}`,
