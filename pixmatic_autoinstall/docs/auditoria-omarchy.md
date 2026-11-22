@@ -386,6 +386,59 @@ cada instalación y actualización
 | Requisito fish | **No existe** en 4.x (era requisito del script, no de Omarchy). |
 | Requisito btrfs + snapper | Sigue: snapper es dependencia del paquete, `snapper.sh` asume btrfs. |
 
+## 10. Aplicaciones que instala
+
+Fuentes: `install/omarchy-base.packages` (167 paquetes, la lista de la
+imagen raíz de la ISO) y las dependencias del paquete `omarchy`
+(`pkgs:pkgbuilds/omarchy/PKGBUILD:27-78`). Lo que dependa del hardware
+(`install/omarchy-x86_64-only.packages`, `install/omarchy-other.packages`,
+`install/hardware/`) queda fuera; el arranque y el kernel están en las
+secciones [4](#4-arranque-limine-y-mkinitcpio) y [8](#8-kernel-y-nvidia).
+Las descripciones de los paquetes propios de `[omarchy]` vienen del
+`pkgdesc` de su PKGBUILD en `pkgs:pkgbuilds/<paquete>/`.
+
+### Gráficas
+
+| Área | Paquetes |
+|---|---|
+| Escritorio | `hyprland`, `hyprland-guiutils`, `quickshell` (barra, menús y notificaciones del escritorio de Omarchy; sustituye a waybar, mako y walker de 3.x), `uwsm`, `sddm` (tema `omarchy`), `hyprpicker`, `hyprsunset`, `hyprland-preview-share-picker`, `xdg-desktop-portal-hyprland`, `xdg-desktop-portal-gtk`, `omarchy-hyprland-titlebars` |
+| Terminal | `foot` (`install/omarchy-base.packages:47`) es el único que se instala. `config/` trae también configuración de `alacritty`, `ghostty` y `kitty`, que no se instalan. |
+| Navegador | `chromium` (`:17`), navegador por defecto (`bin/omarchy-provision-user:128`) |
+| Web apps | Lanzadores `.desktop` de `applications/` copiados a `~/.local/share/applications` (`bin/omarchy-refresh-applications:5-7`): Basecamp, HEY (también `mailto`, `bin/omarchy-provision-user:129`), WhatsApp, Discord, X, YouTube, Zoom, Google Maps/Photos/Messages/Contacts |
+| Archivos y discos | `nautilus` (+ `nautilus-python`, `sushi` para la vista previa, `gvfs-mtp/-nfs/-smb`), `gnome-disk-utility`, `disktree-bin` (mapa del uso del disco) |
+| Multimedia | `mpv` (+ `mpv-mpris`), `imv` (visor de imágenes), `gpu-screen-recorder`, `monologue` (grabar la webcam), `omacut` (recortar vídeo), `moonlight-qt` (streaming de juegos) |
+| Oficina | `libreoffice-fresh`, `evince` (PDF), `signed` (firmar PDF), `obsidian`, `omawrite` (Markdown), `hype` (presentaciones en Markdown), `omacalc` (calculadora), `pinta` (dibujo) |
+| Otras | `localsend`, `aether` (temas a partir del fondo de pantalla), `owe` (fondos animados), `omasnap` (capturas con anotaciones), `superwhisper-bin` (dictado por voz), `system-config-printer`, `fcitx5` con métodos de entrada CJK (`-chewing`, `-chinese-addons`, `-hangul`, `-mozc`, `-table-extra`), `gnome-keyring` |
+
+### De terminal
+
+| Área | Paquetes |
+|---|---|
+| Shell y utilidades | bash (+ `bash-completion`) con `starship`; `eza`, `bat`, `fzf`, `fd`, `ripgrep`, `zoxide`, `tldr`, `plocate`, `tmux`, `gum`, `jq`, `btop`, `fastfetch`, `inxi`, `whois`, `expac`, `ttfx` (efectos de texto) |
+| Desarrollo | `nvim` + `omarchy-nvim` (LazyVim con plugins en caché), `git`, `lazygit`, `mise-bin` (versiones de lenguajes), `docker` (+ `docker-buildx`, `docker-compose`), `ruby`, `lua51`/`luarocks`, `dotnet-runtime`, `tree-sitter-cli`, `python-poetry-core`, `yay`, `herdr` (espacios de trabajo para agentes de IA), `tobi-try` (directorios temporales), `gliff` (escritorio remoto de Hyprland por SSH) |
+| Sistema | `ufw` (+ `ufw-docker`), `cups` (+ `cups-filters`, `cups-pk-helper`), `avahi`, `nss-mdns`, `bluez` (+ `bluez-tools`, `bluez-utils`), `bolt`, `brightnessctl`, `ddcutil`, `pamixer`, `udiskie`, `tzupdate`, `kernel-modules-hook`, `pacman-contrib`, `plymouth`, `snapper` (dependencia en x86_64) |
+| Wayland | `grim`, `slurp`, `wl-clipboard`, `wtype`, `xdg-terminal-exec`, `xorg-xsetroot`, `socat`, `inotify-tools` |
+| Multimedia y otras | `ffmpeg`, `ffmpegthumbnailer`, `imagemagick`, `libvips`, `yt-dlp`, `tesseract` (+ `-data-eng`, OCR), `zbar` y `qrencode` (QR), `cliamp` (reproductor de música) |
+| Fuentes y tema | `ttf-jetbrains-mono-nerd-basic` (fuente del sistema, dependencia de `omarchy`), `noto-fonts` (+ `-cjk`, `-emoji`), `ttf-ia-writer`, `woff2-font-awesome`, `yaru-icon-theme`, `gnome-themes-extra` |
+
+### Configuración de las aplicaciones
+
+- `config/**` llega a `~/.config` del usuario vía `/etc/skel/.config`
+  (`pkgs:pkgbuilds/omarchy-settings/PKGBUILD:183-186`): Hyprland, foot,
+  alacritty, ghostty, kitty, btop, chromium, fcitx5, git, herdr, imv,
+  lazygit, obsidian, starship, tmux, wireplumber, portales,
+  `hyprland-mimeapps.list` y la configuración de `quickshell`
+  (`config/omarchy/`). Detalle de las capas en la
+  [sección 3](#3-usuario-etcskel-omarchy-provision-user-y-primer-inicio).
+- 23 temas en `themes/` (tokyo-night, catppuccin, gruvbox, nord,
+  rose-pine, everforest, kanagawa, matte-black…); el tema elegido se aplica
+  a la vez a Hyprland, Quickshell, terminales, btop, nvim, GTK y Chromium.
+- Lo que se puede aprovechar sin conflictos para la Fase 3 son las
+  aplicaciones, `config/` y `themes/`; lo que choca con nuestro instalador es
+  `omarchy-settings` y `omarchy-apply-system` (arranque, `pacman.conf`,
+  `os-release`; secciones [4](#4-arranque-limine-y-mkinitcpio) a
+  [6](#6-ficheros-de-etc-que-impone-omarchy-settings)).
+
 ## Pendiente de verificar en VM
 
 - Si `chwd` o los kernels de CachyOS usan `ID` de `/etc/os-release`.

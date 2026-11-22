@@ -44,7 +44,8 @@ derivadas para el instalador propio.
     `omarchy-apply-system`/`omarchy-provision-user`), qué deja en el sistema
     y qué choca con CachyOS (Limine obligatorio, HOOKS busybox,
     `pacman.conf`, `os-release`, NVIDIA), con la lista de conflictos de
-    `omarchy-on-cachyos` comprobada en 4.x.
+    `omarchy-on-cachyos` comprobada en 4.x y las aplicaciones (gráficas y
+    de terminal) que instala.
   - [sistema-resultante-hyprland.md](sistema-resultante-hyprland.md): cómo
     queda el sistema de nuestro instalador con el Hyprland de CachyOS (A) y
     con Omarchy (B), opciones para el arranque y decisiones pendientes.
