@@ -85,7 +85,8 @@ pkgs=(
     linux-firmware logrotate lsb-release lvm2 man-db man-pages mdadm chwd mkinitcpio
     netctl os-prober perl python s-nail sudo sysfsutils texinfo usbutils which
     xfsprogs
-    # NCI: snapper sin configurar (sin cachyos-snapper-support no hay snapshot);
+    # NCI: snapper sin configurar; lo configura cachyos-snapper-support, si
+    # está a true en additional_packages (grupo "Snapper", paso 10);
     # sin btrfs-assistant (GUI Qt6; snapper y btrfs-progs bastan, decisiones §3)
     snapper
     # [chaotic-aur] (decisiones §6): llavero y mirrorlist en el sistema instalado
@@ -604,9 +605,22 @@ echo "UKI:" && ls -l "${mnt}"/boot/EFI/Linux/
 echo "cmdline: $(< "${mnt}/etc/kernel/cmdline")"
 efibootmgr
 # DNS de systemd-resolved (con systemd-networkd, paso 6), tras el último
-# arch-chroot
+# arch-chroot normal
 if ! installs networkmanager; then
     ln -sf ../run/systemd/resolve/stub-resolv.conf "${mnt}/etc/resolv.conf"
+fi
+# Instantánea de instalación (Cal §32, NCI): como
+# gucc::fs::create_btrfs_installation_snapshot (gucc/src/btrfs.cpp:123-142)
+# y el script btrfs-installation-snapshot de Calamares, si está
+# cachyos-snapper-support (su post_install ya creó la config "root" durante
+# el pacstrap). Va al final para que incluya el enlace de resolv.conf:
+# arch-chroot -r no monta encima el resolv.conf del live.
+if installs cachyos-snapper-support; then
+    step "Creating the installation snapshot"
+    snap_id="$(arch-chroot -r "${mnt}" snapper --no-dbus -c root create --print-number \
+        --description 'Fresh CachyOS Installation' --userdata 'important=yes')"
+    mkdir -p "${mnt}/etc/cachyos"
+    echo "${snap_id}" > "${mnt}/etc/cachyos/installation-snapshot"
 fi
 cp "${log}" "${mnt}/var/log/pixmatic-install.log"   # para depurar (versión de pruebas)
 

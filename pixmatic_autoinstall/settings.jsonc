@@ -128,8 +128,9 @@
     // CJK y Liberation, y xdg-utils/xdg-user-dirs; lo demás, a false: es una
     // desviación deliberada respecto a Calamares, que los preselecciona
     // (decisiones §8). Estas listas replican las de Calamares: lo que no esté
-    // en ellas va en extra_packages. Excepción: "Gaming" (paquetes del
-    // sistema de cachyos-gaming-meta, que instala cachyos-hello).
+    // en ellas va en extra_packages. Excepciones, por ser paquetes del
+    // sistema: "Gaming" (de cachyos-gaming-meta, que instala cachyos-hello) y
+    // "Snapper" (cachyos-snapper-support).
     // Sin "cachyos-fish-config" se instala fish (la shell del usuario); sin
     // "plymouth", el initramfs se genera sin su hook. Los servicios de
     // Calamares se activan solo si su paquete está instalado: con "ufw", el
@@ -347,6 +348,17 @@
             "mpg123": false,
             "opencl-icd-loader": false,
             "openal": false
+        },
+        // No es de Calamares (excepción, decisiones §8): con
+        // cachyos-snapper-support (snapper + snap-pac), la config "root" de
+        // snapper con la plantilla de CachyOS, snapper-cleanup.timer,
+        // instantáneas antes y después de cada operación de pacman, y la
+        // instantánea de instalación de Calamares/NCI ("Fresh CachyOS
+        // Installation", número en /etc/cachyos/installation-snapshot). Sin
+        // él, snapper queda instalado pero sin configurar (como NCI).
+        // Incompatible con timeshift.
+        "Snapper": {
+            "cachyos-snapper-support": true
         }
     },
 

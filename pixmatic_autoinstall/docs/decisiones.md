@@ -81,7 +81,8 @@ y se anota aquí.
     llena; la decisión se mantiene, pero ya no es «como NCI»), sin `.pacnew`,
     sin `remove-nvidia`, sin `/etc/default/*` ni el enlace roto
     `ly@tty2.service`;
-  - `snapper`, y snapshot de instalación si está `cachyos-snapper-support`;
+  - `snapper`, y snapshot de instalación si está `cachyos-snapper-support`
+    (grupo *Snapper*, a `true` desde 2026-11-23, §8);
     **sin `btrfs-assistant`** (2026-11-22): NCI lo instala, pero es una GUI
     Qt6 sin lanzador ni agente de polkit en este sistema, y `snapper` y
     `btrfs-progs` cubren lo mismo desde la consola (Calamares con
@@ -419,7 +420,7 @@ añade estos repos.
     `pipewire-pulse`), y con él se activa `avahi-daemon`, como en
     Calamares. Los grupos replican las listas de
     Calamares: lo que no esté en ellas iría en `extra_packages` (hoy
-    vacío), no en un grupo, salvo el grupo *Gaming* (abajo). A `false` todo lo
+    vacío), no en un grupo, salvo los grupos *Gaming* y *Snapper* (abajo). A `false` todo lo
     demás, incluidos *Plymouth* (initramfs sin su hook), `cachyos-fish-config`
     (se instala `fish` suelto), audio (PipeWire), Bluetooth y *Firefox*.
     También `openssh` y `ufw`: sin ellos no hay sshd ni cortafuegos.
@@ -442,6 +443,30 @@ añade estos repos.
     `cachyos-gaming-applications` (Steam, Lutris, Heroic, Faugus,
     gamescope, MangoHud, GOverlay, `wqy-zenhei`, `xorg-fonts-misc`) son
     aplicaciones: irían en `extra_packages`.
+  - **Grupo *Snapper*** (2026-11-23, decisión del usuario): segunda
+    excepción, también por ser paquete del sistema:
+    `cachyos-snapper-support` (1.0.2-1) a `true`. Depende de `snapper` y
+    `snap-pac` (instantáneas antes y después de cada operación de pacman) y
+    choca con `timeshift`. Su `post_install` activa `snapper-cleanup.timer`
+    y crea la config `root` de `/` con la plantilla
+    `/etc/snapper/config-templates/cachyos-root` (sin instantáneas
+    periódicas: `TIMELINE_CREATE="no"`); dentro del `pacstrap` usa
+    `--no-dbus`. Con él, el instalador hace al final la instantánea de
+    instalación de Calamares y NCI (`btrfs-installation-snapshot`;
+    `gucc/src/btrfs.cpp:123-142`): `snapper --no-dbus -c root create
+    --print-number --description 'Fresh CachyOS Installation' --userdata
+    'important=yes'`, y guarda el número en
+    `/etc/cachyos/installation-snapshot`. Desviación de orden: va tras crear
+    el enlace de `/etc/resolv.conf` (paso 10), con `arch-chroot -r`
+    (arch-install-scripts ≥ 32: no monta encima el `resolv.conf` del live),
+    para que la instantánea lo incluya. Snapper y no Timeshift: Timeshift
+    restaura renombrando subvolúmenes, y la raíz se monta como subvolumen
+    por defecto, guardado por ID (§4), así que tras restaurar arrancaría el
+    `@` antiguo; `snapper rollback` cambia el subvolumen por defecto, que
+    es para lo que está pensado el layout. `.snapshots` queda anidado en
+    `@` (lo crea `create-config`), como en Calamares y NCI, que tampoco
+    tienen subvolumen `@snapshots`; la validación del rollback la hace el
+    usuario.
   - Con Firefox activo, la instalación por defecto instala `firefox` y
     `firefox-i18n-es-es`, como Calamares (grupo preseleccionado no crítico).
     Comentarlo es una desviación.
