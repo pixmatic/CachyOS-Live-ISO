@@ -419,10 +419,29 @@ añade estos repos.
     `pipewire-pulse`), y con él se activa `avahi-daemon`, como en
     Calamares. Los grupos replican las listas de
     Calamares: lo que no esté en ellas iría en `extra_packages` (hoy
-    vacío), no en un grupo. A `false` todo lo
+    vacío), no en un grupo, salvo el grupo *Gaming* (abajo). A `false` todo lo
     demás, incluidos *Plymouth* (initramfs sin su hook), `cachyos-fish-config`
     (se instala `fish` suelto), audio (PipeWire), Bluetooth y *Firefox*.
     También `openssh` y `ufw`: sin ellos no hay sshd ni cortafuegos.
+  - **Grupo *Gaming*** (2026-11-23, decisión del usuario): única excepción a
+    que los grupos repliquen Calamares. El botón *Install gaming packages*
+    de `cachyos-hello` (`v0.28.1`, `efd4670`, `src/actions.rs:447-455`)
+    hace `pacman -S` de los que falten de `cachyos-gaming-meta` y
+    `cachyos-gaming-applications`, sin activar servicios ni tocar
+    configuración. Las dependencias de `cachyos-gaming-meta` (1:1.0.0-9)
+    se consideran paquetes del sistema y van como grupo propio, no en
+    `extra_packages`. Por ahora solo sus librerías de 64 bits, todas a
+    `false`: `alsa-plugins` (también en *audio*), `giflib`, `glfw`,
+    `gst-plugins-base-libs`, `libjpeg-turbo`, `libva`, `libxslt`,
+    `mpg123`, `opencl-icd-loader` y `openal`. Fuera, de momento: las de 32
+    bits (`lib32-alsa-plugins`, `lib32-gtk3`, `lib32-libjpeg-turbo`,
+    `lib32-libva`, `lib32-ocl-icd`, `lib32-opencl-icd-loader`), Wine y
+    Proton (`wine-cachyos-opt`, `proton-cachyos-slr`, `umu-launcher`,
+    `winetricks` (que arrastra además el `wine` de `[extra]`),
+    `protontricks`), `ttf-liberation` (ya en *fonts*) y `vulkan-tools`.
+    `cachyos-gaming-applications` (Steam, Lutris, Heroic, Faugus,
+    gamescope, MangoHud, GOverlay, `wqy-zenhei`, `xorg-fonts-misc`) son
+    aplicaciones: irían en `extra_packages`.
   - Con Firefox activo, la instalación por defecto instala `firefox` y
     `firefox-i18n-es-es`, como Calamares (grupo preseleccionado no crítico).
     Comentarlo es una desviación.
