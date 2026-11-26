@@ -176,13 +176,15 @@ Cierran los puntos de decisión de
   §9).
 - **Pasos aparte**, solo donde hay dependencia real: `chwd -a` (detecta el
   hardware desde el target y usa su propio pacman; puede añadir NVIDIA y
-  regenerar el initramfs); entrada UEFI con `efibootmgr` (la UKI ya la deja
+  regenerar el initramfs; con `gaming_packages`, el `pacstrap` da por
+  instalados los drivers Vulkan que pone, §8); entrada UEFI con `efibootmgr` (la UKI ya la deja
   el `pacstrap`, §9); tema visual de Hyprland (ficheros en el `$HOME` del
   usuario, o en chezmoi en la Fase 6).
 - **Orden**: preparar configuración → llaveros de los repos extra en el live
   → `pacstrap` único → ajustes del sistema → crear usuario → ajustes del
   usuario (`kb_layout` en la config de Hyprland, tema) → `chwd` →
-  entrada UEFI.
+  entrada UEFI → instantánea de instalación
+  (con `cachyos-snapper-support`).
 - Verificar en VM: que el hook de `mkinitcpio` corre al final de la
   transacción (con `plymouth` ya instalado) y que el drop-in de
   `mkinitcpio.conf.d/` sustituye a los `HOOKS` de `mkinitcpio.conf`.
@@ -337,7 +339,8 @@ añade estos repos.
   entonces) se quitaron el 2026-11-17: el disco y qué hacer al terminar se
   eligen en el menú (§10).
 - Claves nuevas: `console_keymap` (por defecto, `xkbmap`),
-  `user_fullname` (GECOS), `extra_packages` y `additional_packages`. La clave `confirm` (pedir
+  `user_fullname` (GECOS), `extra_packages`, `additional_packages` y
+  `gaming_packages` (§8, más abajo). La clave `confirm` (pedir
   escribir YES antes de borrar el disco) se quitó el 2026-11-17: el
   instalador no hace ninguna pregunta.
 - **Sin claves `firewall` ni `ssh_server`** (2026-11-22): las casillas
@@ -420,31 +423,44 @@ añade estos repos.
     `pipewire-pulse`), y con él se activa `avahi-daemon`, como en
     Calamares. Los grupos replican las listas de
     Calamares: lo que no esté en ellas iría en `extra_packages` (hoy
-    vacío), no en un grupo, salvo los grupos *Gaming* y *Snapper* (abajo). A `false` todo lo
+    vacío), no en un grupo, salvo el grupo *Snapper* (abajo). A `false` todo lo
     demás, incluidos *Plymouth* (initramfs sin su hook), `cachyos-fish-config`
     (se instala `fish` suelto), audio (PipeWire), Bluetooth y *Firefox*.
     También `openssh` y `ufw`: sin ellos no hay sshd ni cortafuegos.
-  - **Grupo *Gaming*** (2026-11-23, decisión del usuario): única excepción a
-    que los grupos repliquen Calamares. El botón *Install gaming packages*
-    de `cachyos-hello` (`v0.28.1`, `efd4670`, `src/actions.rs:447-455`)
-    hace `pacman -S` de los que falten de `cachyos-gaming-meta` y
-    `cachyos-gaming-applications`, sin activar servicios ni tocar
-    configuración. Las dependencias de `cachyos-gaming-meta` (1:1.0.0-9)
-    se consideran paquetes del sistema y van como grupo propio, no en
-    `extra_packages`. Por ahora solo sus librerías de 64 bits, todas a
-    `false`: `alsa-plugins` (también en *audio*), `giflib`, `glfw`,
-    `gst-plugins-base-libs`, `libjpeg-turbo`, `libva`, `libxslt`,
-    `mpg123`, `opencl-icd-loader` y `openal`. Fuera, de momento: las de 32
-    bits (`lib32-alsa-plugins`, `lib32-gtk3`, `lib32-libjpeg-turbo`,
-    `lib32-libva`, `lib32-ocl-icd`, `lib32-opencl-icd-loader`), Wine y
-    Proton (`wine-cachyos-opt`, `proton-cachyos-slr`, `umu-launcher`,
-    `winetricks` (que arrastra además el `wine` de `[extra]`),
-    `protontricks`), `ttf-liberation` (ya en *fonts*) y `vulkan-tools`.
-    `cachyos-gaming-applications` (Steam, Lutris, Heroic, Faugus,
-    gamescope, MangoHud, GOverlay, `wqy-zenhei`, `xorg-fonts-misc`) son
-    aplicaciones: irían en `extra_packages`.
-  - **Grupo *Snapper*** (2026-11-23, decisión del usuario): segunda
-    excepción, también por ser paquete del sistema:
+  - **`gaming_packages`** (2026-11-23, decisión del usuario; sustituye al
+    grupo *Gaming* del mismo día, que listaba las librerías de
+    `cachyos-gaming-meta`): una sola opción que reproduce el botón *Install
+    gaming packages* de `cachyos-hello` (`v0.28.1`, `efd4670`,
+    `src/actions.rs:366-394` y `447-455`). Hello no da opciones ni mira
+    `[multilib]`: hace `pacman -S` de los que falten de
+    `cachyos-gaming-meta` (1:1.0.0-9: Wine, Proton, umu, winetricks,
+    protontricks, librerías de 64 y 32 bits, `ttf-liberation`,
+    `vulkan-tools`) y `cachyos-gaming-applications` (1.0.0-4: Steam,
+    Lutris, Heroic, Faugus, gamescope, MangoHud, GOverlay, `wqy-zenhei`,
+    `xorg-fonts-misc`), sin activar servicios ni tocar configuración. El
+    instalador los mete en el **`pacstrap` único** con `--assume-installed
+    vulkan-driver --assume-installed lib32-vulkan-driver` (también en la
+    validación previa): Hello corre con los drivers de `chwd` ya puestos, y
+    aquí `chwd` va después; sin esas opciones, pacman cumpliría esas
+    dependencias de Steam y umu con `nvidia-390xx-utils` (y arrastraría
+    `xorg-server`, `egl-wayland`…). Simulado contra los repos el
+    2026-11-23 con nuestra lista y el perfil `amd` de `chwd 1.25.0`: con
+    las opciones, `pacstrap` + `chwd` dejan exactamente los mismos paquetes
+    que sistema + `chwd` + Hello (antes se probó a instalarlos tras `chwd`,
+    con el mismo resultado pero un segundo pacman). Tras `chwd`, `pacman
+    -Dk` comprueba que esas dependencias quedaron cumplidas; si no (un
+    perfil sin Vulkan), solo avisa. Las dependencias de gaming no añaden
+    ninguna unidad de las que el instalador activa (§9), así que entrar en
+    la lista resuelta no cambia los servicios: como Hello, no activan nada.
+    Donde pacman haría elegir, `--noconfirm` toma la opción por defecto,
+    la de pulsar Intro en Hello: con nuestra lista, solo `ttf-font-nerd`
+    (de `goverlay`), que sale `otf-atkinsonhyperlegiblemono-nerd` (con
+    `ttf-meslo-nerd` instalado, como en Calamares, no preguntaría);
+    `xdg-desktop-portal-impl` (de Lutris) lo cumple
+    `xdg-desktop-portal-gtk`, que entra en la misma operación. Requiere
+    `[multilib]` (activo, como en Calamares). Por defecto, `false`.
+  - **Grupo *Snapper*** (2026-11-23, decisión del usuario): única
+    excepción, por ser paquete del sistema:
     `cachyos-snapper-support` (1.0.2-1) a `true`. Depende de `snapper` y
     `snap-pac` (instantáneas antes y después de cada operación de pacman) y
     choca con `timeshift`. Su `post_install` activa `snapper-cleanup.timer`

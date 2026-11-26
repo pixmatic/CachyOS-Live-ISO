@@ -57,6 +57,11 @@ xkbmap="$(cfg xkbmap)"
 console_keymap="$(cfg console_keymap "${xkbmap}")"
 timezone="$(cfg timezone)"
 mapfile -t extra_pkgs < <(jq -r '.extra_packages // [] | .[]' <<< "${json}")
+gaming_packages="$(cfg gaming_packages false)"
+[[ ${gaming_packages} == true || ${gaming_packages} == false ]] \
+    || { echo "ERROR: gaming_packages: expected true or false" >&2; exit 1; }
+# Botón "Install gaming packages" de cachyos-hello (src/actions.rs:447-455)
+gaming_pkgs=(cachyos-gaming-meta cachyos-gaming-applications)
 username="$(cfg user_name)"
 user_fullname="$(cfg user_fullname "")"
 user_pass="$(cfg user_pass)"
@@ -108,6 +113,17 @@ jq -e '[paths(type != "object") as $p | select(($p | length) < 2 or (getpath($p)
 mapfile -t group_pkgs < <(jq -r '[paths(type == "boolean") as $p | select(getpath($p)) | $p[-1]] | unique[]' <<< "${tree}")
 groups="$(jq -r '[paths(type == "boolean") as $p | select(getpath($p)) | $p[0]] | unique | join(", ")' <<< "${tree}")"
 pkgs+=("${group_pkgs[@]}")
+
+# Botón "Install gaming packages" de cachyos-hello (gaming_packages,
+# decisiones §8), dentro del pacstrap único. Hello corre con los drivers de
+# chwd ya puestos; aquí chwd va después (paso 8), así que las dependencias
+# virtuales de driver de Steam y umu se dan por instaladas: si no, pacman
+# las cumpliría con nvidia-390xx-utils. Lo demás sale igual que con Hello.
+assume=()
+if [[ ${gaming_packages} == true ]]; then
+    pkgs+=("${gaming_pkgs[@]}")
+    assume=(--assume-installed vulkan-driver --assume-installed lib32-vulkan-driver)
+fi
 
 # Dependencia de lo fijo del script: fish es la shell del usuario (llega por
 # cachyos-fish-config si está marcado)
@@ -247,7 +263,7 @@ pacman --config "${pacconf}" --dbpath "${work}/db" -Sy
 # La lista resuelta (con dependencias) es lo que quedará instalado. Si no se
 # puede resolver, pacman explica el motivo (":: unable to satisfy dependency
 # ...") en stdout, así que se muestra la salida capturada.
-if ! resolved="$(pacman --config "${pacconf}" --dbpath "${work}/db" -Sp --print-format '%n' "${pkgs[@]}")"; then
+if ! resolved="$(pacman --config "${pacconf}" --dbpath "${work}/db" -Sp --print-format '%n' "${pkgs[@]}" "${assume[@]}")"; then
     printf '%s\n' "${resolved}" >&2
     die "The package list cannot be installed from the current repos (see above); nothing has been written to ${disk}"
 fi
@@ -390,7 +406,7 @@ step "Installing packages"
 # mirrorlist de Arch se copian del live. Ante fallos de red se repite el mismo
 # pacstrap: la caché conserva lo ya descargado.
 for attempt in 1 2 3; do
-    pacstrap -C "${pacconf}" "${mnt}" "${pkgs[@]}" && break
+    pacstrap -C "${pacconf}" "${mnt}" "${pkgs[@]}" "${assume[@]}" && break
     (( attempt < 3 )) || die "pacstrap failed"
     echo "pacstrap failed, retrying (${attempt}/3)"
 done
@@ -581,6 +597,13 @@ fi
 
 step "Running chwd"
 in_target chwd --autoconfigure
+
+# Con gaming_packages, el pacstrap dio por instalados vulkan-driver y
+# lib32-vulkan-driver: los ha tenido que poner chwd. Si no (perfil sin
+# Vulkan), Steam y umu quedan con dependencias rotas; se avisa sin abortar.
+if [[ ${gaming_packages} == true ]] && ! in_target pacman -Dk; then
+    echo "WARNING: chwd did not install a Vulkan driver for the gaming packages (see above)"
+fi
 
 # --- 9. Arranque: UKI en la ESP + entrada UEFI (decisiones §9) ---------------
 

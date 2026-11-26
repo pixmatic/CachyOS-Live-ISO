@@ -128,8 +128,7 @@
     // CJK y Liberation, y xdg-utils/xdg-user-dirs; lo demás, a false: es una
     // desviación deliberada respecto a Calamares, que los preselecciona
     // (decisiones §8). Estas listas replican las de Calamares: lo que no esté
-    // en ellas va en extra_packages. Excepciones, por ser paquetes del
-    // sistema: "Gaming" (de cachyos-gaming-meta, que instala cachyos-hello) y
+    // en ellas va en extra_packages. Excepción, por ser paquete del sistema:
     // "Snapper" (cachyos-snapper-support).
     // Sin "cachyos-fish-config" se instala fish (la shell del usuario); sin
     // "plymouth", el initramfs se genera sin su hook. Los servicios de
@@ -332,23 +331,6 @@
             "cups-filters": false,
             "cups-pdf": false
         },
-        // No es de Calamares (excepción, decisiones §8): dependencias de
-        // cachyos-gaming-meta 1:1.0.0-9, el metapaquete que instala el botón
-        // "Install gaming packages" de cachyos-hello. Por ahora solo sus
-        // librerías de 64 bits, en el orden del metapaquete. alsa-plugins
-        // también está en "audio": basta con que esté a true en uno.
-        "Gaming": {
-            "alsa-plugins": false,
-            "giflib": false,
-            "glfw": false,
-            "gst-plugins-base-libs": false,
-            "libjpeg-turbo": false,
-            "libva": false,
-            "libxslt": false,
-            "mpg123": false,
-            "opencl-icd-loader": false,
-            "openal": false
-        },
         // No es de Calamares (excepción, decisiones §8): con
         // cachyos-snapper-support (snapper + snap-pac), la config "root" de
         // snapper con la plantilla de CachyOS, snapper-cleanup.timer,
@@ -361,6 +343,20 @@
             "cachyos-snapper-support": true
         }
     },
+
+    // Botón "Install gaming packages" de cachyos-hello (decisiones §8):
+    // cachyos-gaming-meta (Wine, Proton, umu, winetricks, protontricks y
+    // librerías de 64 y 32 bits) y cachyos-gaming-applications (Steam,
+    // Lutris, Heroic, Faugus, gamescope, MangoHud, GOverlay y fuentes), sin
+    // activar servicios ni tocar configuración. Van en el pacstrap único,
+    // con vulkan-driver y lib32-vulkan-driver dados por instalados (los pone
+    // chwd después; si no, pacman elegiría nvidia-390xx-utils): el
+    // resultado es el mismo que con Hello. Donde pacman haría
+    // elegir entre paquetes equivalentes, toma su opción por defecto (la de
+    // pulsar Intro): la fuente nerd de goverlay sale
+    // otf-atkinsonhyperlegiblemono-nerd, salvo que ya haya otra instalada.
+    // Valores: true | false. Por defecto: false.
+    "gaming_packages": false,
 
     // Paquetes adicionales, dentro del pacstrap único. Solo de los repos del
     // pacman.conf de la instalación (CachyOS, Arch y [chaotic-aur]; no el
