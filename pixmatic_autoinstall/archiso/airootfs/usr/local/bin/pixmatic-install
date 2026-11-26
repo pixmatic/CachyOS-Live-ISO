@@ -273,15 +273,73 @@ installs() { [[ ${resolved} == *" $1 "* ]]; }
 # --- 3. Disco: GPT, ESP y LUKS2 (Cal §1, NCI §2, decisiones §4) ---------------
 
 step "Partitioning ${disk}"
-# Restos de una ejecución anterior que falló
-umount -R "${mnt}" 2> /dev/null || true
+# Libera el disco a la fuerza, sin esperar a que nada termine: lo que quede
+# en ${mnt} (con los montajes de arch-chroot) y cualquier montaje o swap del
+# disco, sus particiones o lo que haya encima (LUKS, LVM…), de una ejecución
+# anterior, del rescate del menú o de un montaje manual. umount -l desengancha
+# el montaje al momento aunque esté ocupado; dmsetup remove --force retira el
+# dispositivo device-mapper aunque siga abierto (su E/S pasa a fallar). lsblk
+# lista padres antes que hijos: tac retira primero los de encima.
+umount -R -l "${mnt}" 2> /dev/null || true
+lsblk -lnpo MOUNTPOINTS "${disk}" | grep -v -e '^$' -e '^\[SWAP\]$' | sort -ru \
+    | while IFS= read -r m; do umount -f -l "${m}" || true; done
+lsblk -lnpo NAME,FSTYPE "${disk}" | awk '$2 == "swap" { print $1 }' \
+    | while read -r dev; do swapoff "${dev}" 2> /dev/null || true; done
+lsblk -lno NAME,TYPE "${disk}" | tac | awk '$2 == "crypt" || $2 == "lvm" { print $1 }' \
+    | while read -r dm; do dmsetup remove --force "${dm}" || true; done
+# El mapper de la raíz, por si quedó abierto sin estar ya ligado al disco
 cryptsetup close "${mapper}" 2> /dev/null || true
 
-# Borra firmas de las particiones viejas y del disco, y descarta los bloques
-# (en SSD/NVMe/virtio deja el disco a cero; en HDD no hace nada)
+# Borra firmas de las particiones viejas y del disco
 lsblk -lnpo NAME "${disk}" | tail -n +2 | xargs -r wipefs -af
 wipefs -af "${disk}"
-blkdiscard -f "${disk}" 2> /dev/null || true
+
+# Borrado seguro en NVMe (decisiones §9), en dos fases independientes:
+# 1. Sanitize con borrado criptográfico sobre la controladora, sin probar
+#    otro tipo de sanitize. --ause permite salir del modo de fallo si falla
+#    (si no, el SSD rechazaría la E/S hasta otro sanitize correcto). El
+#    estado se lee del log de sanitize cada segundo: 2 = en curso, 1 y 4 =
+#    correcto, 3 = fallido.
+# 2. Format NVM del namespace con sectores de 4096 B: criptográfico, si
+#    falla de datos de usuario y, si también falla, blkdiscard. nvme-cli
+#    ignora --block-size si el SSD formatea todos los namespaces a la vez
+#    (FNA bit 0): se muestra el tamaño de sector resultante. --force evita
+#    su espera de 10 s.
+# Otros discos: blkdiscard (en HDD no hace nada).
+if [[ ${disk} == /dev/nvme* ]]; then
+    udevadm settle
+    ctrl="/dev/$(basename "$(readlink -f "/sys/block/${disk#/dev/}/device")")"
+    if [[ -c ${ctrl} ]] && nvme sanitize "${ctrl}" --sanact=start-crypto-erase --ause; then
+        while sstat="$(nvme sanitize-log "${ctrl}" -o json \
+                | jq -r '.[].sstat.status | capture("^\\((?<n>[0-9]+)\\)").n')" \
+                && [[ ${sstat} == 2 ]]; do
+            sleep 1
+        done
+        case "${sstat}" in
+            1|4) echo "Sanitize (crypto erase) done" ;;
+            3)   echo "WARNING: sanitize (crypto erase) failed, exiting failure mode"
+                 nvme sanitize "${ctrl}" --sanact=exit-failure \
+                     || echo "WARNING: could not exit the sanitize failure mode" ;;
+            *)   echo "WARNING: unknown sanitize status '${sstat}'" ;;
+        esac
+    else
+        echo "WARNING: sanitize (crypto erase) not available on ${ctrl}"
+    fi
+
+    if nvme format "${disk}" --ses=2 --block-size=4096 --force; then
+        echo "Format (crypto erase) done"
+    elif echo "WARNING: format with crypto erase failed, trying a user data erase"
+         nvme format "${disk}" --ses=1 --block-size=4096 --force; then
+        echo "Format (user data erase) done"
+    else
+        echo "WARNING: format with user data erase failed, discarding blocks"
+        blkdiscard -f "${disk}" 2> /dev/null || true
+    fi
+    udevadm settle
+    echo "Logical sector size of ${disk}: $(blockdev --getss "${disk}") B"
+else
+    blkdiscard -f "${disk}" 2> /dev/null || true
+fi
 
 # Tipos GPT de la Discoverable Partitions Specification: ESP y raíz x86-64
 # (gpt-auto monta la ESP en /boot y desbloquea y monta la raíz sin fstab ni

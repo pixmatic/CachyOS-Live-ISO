@@ -32,7 +32,7 @@ y se anota aquí.
   quita `mkinitcpio.d/linux.preset`, que apunta al `-lts`, y
   `modules-load.d/zfs.conf`). Solo herramientas de disco del instalador
   propio (btrfs, vfat, LUKS2, gptfdisk; sin lvm2/xfsprogs/f2fs-tools/parted/zfs)
-  + `nvme-cli` para el borrado seguro del disco (aún no se usa, §9). Editor: solo `nano`.
+  + `nvme-cli` para el borrado seguro del disco (§9). Editor: solo `nano`.
 - **Paquetes compilados para x86-64-v3** (2026-11-16): el `archiso/pacman.conf`
   del overlay añade `[cachyos-v3]`, `[cachyos-extra-v3]`, `[cachyos-core-v3]`
   (`mirror.cachyos.org/repo/$arch_v3`) delante de `[cachyos]`. La ISO no
@@ -662,9 +662,78 @@ sigue el orden de §5. Lo que concreta o cambia respecto a lo anterior:
   `locale.conf`, `hosts`, `sudoers.d/10-installer`, `loader.conf`, servicios.
 - Se omite (NCI, o sin efecto): `/etc/timezone`, `/etc/default/{keyboard,locale}`,
   semillas de `random-seed` (las crea systemd), copia de `resolv.conf`.
-- Borrado del disco: `wipefs` + `blkdiscard` (si el disco lo admite) +
-  `sgdisk --zap-all`. **Sin borrado seguro con `nvme-cli` por ahora**
-  (decisión del usuario, 2026-11-16); el paquete sigue en el live.
+- **Liberar el disco antes de borrarlo, a la fuerza** (2026-11-26, decisión
+  del usuario, para no esperar): `umount -R -l` de `/mnt` (con los montajes
+  de `arch-chroot`); `umount -f -l` de todos los puntos de montaje del disco,
+  sus particiones y lo que haya encima (`lsblk -o MOUNTPOINTS`); `swapoff`
+  de sus swaps; `dmsetup remove --force` de sus dispositivos `crypt` y `lvm`
+  (de arriba abajo), y `cryptsetup close root` por si quedó suelto. Con
+  `-l` el montaje se desengancha al momento aunque esté ocupado (el sistema
+  de ficheros se cierra cuando lo suelte el último proceso); `--force` cambia
+  la tabla del dispositivo por una que hace fallar toda su E/S y lo retira.
+  Cubre restos de una ejecución fallida, el rescate del menú (§11) o un
+  montaje manual. Antes solo se hacía `umount -R /mnt` y `cryptsetup close
+  root`. RAID por software (md) no se contempla.
+- Borrado del disco: `wipefs` + borrado + `sgdisk --zap-all`. Hasta el
+  2026-11-26 el borrado era `blkdiscard` (si el disco lo admite), sin borrado
+  seguro (decisión del usuario, 2026-11-16). **Desde el 2026-11-26** (decisión
+  del usuario), en NVMe hay dos fases independientes (la segunda se hace
+  sea cual sea el resultado de la primera), con nvme-cli 3.2 y sin
+  comprobaciones previas:
+  1. **Sanitize con borrado criptográfico sobre la controladora**
+     (`nvme sanitize /dev/nvmeX --sanact=start-crypto-erase --ause`; la
+     controladora sale de `/sys/block/nvmeXnY/device`). Borra todo el
+     subsistema NVM, cachés y bloques no asignados incluidos, y deja los
+     bloques desasignados (sin `--no-dealloc`). Si el SSD lo rechaza (p. ej.
+     no anuncia crypto erase en `SANICAP`; nvme-cli lo comprueba antes,
+     `src/nvme-cmds-sanitize.c:531-535`), aviso y no se prueba ningún otro
+     tipo de sanitize. Si lo acepta, se lee el log de sanitize cada segundo
+     (`nvme sanitize-log -o json`, campo `sstat.status`, `"(N) texto"`,
+     `src/nvme-print-json.c:1020-1068`) hasta que deja de estar en curso
+     (2): 1 y 4 = correcto, 3 = fallido. No se usa `--wait` de nvme-cli:
+     consulta cada segundo, pero da por bueno el final sin mirar si falló
+     (`src/nvme-cmds-sanitize.c:276-370`).
+     - `--ause` (*Allow Unrestricted Sanitize Exit*) es imprescindible: un
+       sanitize que termina en fallo deja la controladora en modo de fallo,
+       que rechaza la E/S hasta otro sanitize correcto (fallarían el format,
+       `blkdiscard` y el particionado). Con `--ause`, si falla, se envía
+       `--sanact=exit-failure`, que no borra nada: solo sale de ese modo.
+  2. **Format NVM del namespace forzando sectores de 4096 B**
+     (`nvme format /dev/nvmeXnY --block-size=4096 --force`): borrado
+     criptográfico (`--ses=2`, se borra la clave interna del controlador);
+     si falla, aviso y borrado de datos de usuario (`--ses=1`; el
+     controlador puede hacerlo también criptográfico si cifra siempre); si
+     también falla (p. ej. sin formato LBA de 4096 B sin metadatos), aviso y
+     `blkdiscard`. El instalador no aborta en ningún caso.
+  Detalles:
+  - **Por qué 4096 B** (decisión del usuario, 2026-11-26): es el tamaño que
+    suele corresponder a cómo trabaja la flash (los SSD lo marcan
+    «Relative Performance: Best»; recomendado en la Arch Wiki, *Advanced
+    Format*), y cryptsetup elige el tamaño de sector de cifrado de LUKS2
+    según el que anuncia el disco: con 4096 B, dm-crypt cifra bloques de
+    4 KiB (ocho veces menos bloques que con 512 B). Es una propiedad del
+    disco, no del sistema instalado; los oficiales no la tocan (dejan la de
+    fábrica, casi siempre 512 B).
+  - Excepción de nvme-cli: si el controlador aplica el formato a todos los
+    namespaces (`FNA` bit 0), nvme-cli envía el comando a todos e **ignora
+    `--block-size`**, aplicando el LBAF 0 (`src/nvme-cmds-sanitize.c:842-905`
+    del tag `v3.2`; su man page dice que `--lbaf` «Defaults to 0», cierto
+    solo en ese caso: si no, conserva el formato en uso). Pasar la
+    controladora en vez del namespace no lo evita (con `FNA` bit 0 hace lo
+    mismo; sin él, falla por no saber qué namespace formatear). Por eso el
+    instalador muestra en el log el tamaño de sector resultante
+    (`blockdev --getss`). Forzar 4096 B en ese caso exigiría calcular el
+    `--lbaf` con `nvme id-ns`; no se hace por simplicidad.
+  - `--force`: sin la espera de 10 s ni el aviso de namespace ocupado. El
+    timeout por defecto de `nvme format` es de 10 min (`:797`). El bucle del
+    sanitize no tiene límite de tiempo (un crypto erase tarda segundos).
+  - En discos que no son NVMe (SATA, virtio) se mantiene `blkdiscard`: no es
+    un ajuste para VM, sino el comportamiento genérico anterior.
+  - Disco de destino (Crucial T710, SM2508): no está comprobado si admite el
+    sanitize criptográfico, el format criptográfico ni el formato de
+    4096 B; el log muestra los avisos de lo que falle y el tamaño de sector
+    final. Comprobar antes con `nvme id-ctrl /dev/nvme0 -H | grep -i -E
+    'sanicap|crypto|fna'` y `nvme id-ns -H /dev/nvme0n1 | grep 'LBA Format'`.
 
 ## 10. Menú del live (2026-11-17)
 

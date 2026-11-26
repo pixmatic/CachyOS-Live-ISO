@@ -79,7 +79,7 @@ Instaladores oficiales (Calamares con Hyprland, `cachyos-installer` con
       `archiso/airootfs/usr/local/bin/pixmatic-install`, ejecución manual
       (`sudo pixmatic-install [settings.jsonc]`; desde §10, desde el menú). Sistema base sin escritorio,
       LUKS2 con contraseña vacía, con `[chaotic-aur]`, ufw sin activar y sin
-      borrado seguro NVMe; configuración desde `settings.jsonc`. Decisiones de esta versión en
+      borrado seguro NVMe (añadido el 2026-11-26 con `nvme sanitize` + `nvme format`); configuración desde `settings.jsonc`. Decisiones de esta versión en
       [decisiones.md §9](decisiones.md#9-primera-versión-del-instalador-2026-11-16).
 - [x] Primera prueba en VM (2026-11-17, VirtualBox): arranca sin pedir
       clave, montajes y una sola entrada correctos, sin `.pacnew`,
