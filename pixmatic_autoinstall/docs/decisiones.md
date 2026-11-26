@@ -117,6 +117,29 @@ Cierran los puntos de decisión de
 - **LUKS2 al particionar** (`cryptsetup luksFormat`); la raíz se desbloquea en
   el initrd por gpt-auto (`gpt-auto-root-luks` → `/dev/mapper/root`,
   initramfs con systemd y `sd-encrypt`). El TPM2 es la Fase 5.
+- **TRIM a través de LUKS** (2026-11-26, desviación deliberada): la raíz se
+  abre al instalar con `cryptsetup open --allow-discards --persistent`, que
+  guarda el indicador `allow-discards` en la cabecera LUKS2; libcryptsetup lo
+  aplica en cada apertura, también la de gpt-auto/`crypttab` en el initrd,
+  sin opciones en la cmdline ni en `crypttab` (y sobrevive al cambio a TPM2
+  de la Fase 5). Sin él, dm-crypt anuncia `discard_max_bytes = 0` aunque el
+  disco admita TRIM: btrfs (kernel ≥ 6.2) solo activa `discard=async` por su
+  cuenta si el dispositivo anuncia discard, y `fstrim` (con
+  `--quiet-unsupported`) se salta la raíz sin avisar. Con él, btrfs activa
+  `discard=async` solo (sin tocar `rootflags`), ya durante la instalación, y
+  se mantiene `fstrim.timer` (semanal, el del paquete `util-linux`, que
+  Calamares ya activa, Cal §28) como red de seguridad.
+  - Los oficiales **no** lo hacen: Calamares escribe `crypttab` sin opciones y
+    arranca con `rd.luks.uuid=` sin `rd.luks.options`; NCI `0.13.0` ni
+    `crypttab` ni `--allow-discards`. Con LUKS, sus instalaciones no tienen
+    TRIM en la raíz.
+  - Coste aceptado: quien vea el disco cifrado puede saber qué bloques están
+    libres (y deducir tamaño de uso o el sistema de ficheros); no revela datos.
+  - Disco de destino: Crucial T710 2 TB (NVMe PCIe 5.0, SM2508), con TRIM
+    (Dataset Management). Comprobar en el equipo: `lsblk --discard` con
+    valores en `root` (dm), `cryptsetup luksDump` con
+    `Flags: allow-discards`, `dmsetup table root` con `allow_discards` y
+    `discard=async` en `findmnt -no OPTIONS /`.
 - **Sin `/etc/fstab`**: montajes «a la manera moderna» de systemd
   (Discoverable Partitions Specification + `systemd-gpt-auto-generator`, que
   se habilita al exportar `LoaderDevicePartUUID`: lo hacía systemd-boot y,

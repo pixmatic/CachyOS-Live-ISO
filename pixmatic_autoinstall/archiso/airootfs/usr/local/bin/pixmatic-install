@@ -303,7 +303,12 @@ mkfs.fat -F32 "${esp}"
 keyfile="${work}/empty.key"
 : > "${keyfile}"
 cryptsetup -q luksFormat --type luks2 "${root}" "${keyfile}"
-cryptsetup open --key-file "${keyfile}" "${root}" "${mapper}"
+# TRIM a través de dm-crypt (desviación, decisiones §4): --persistent guarda
+# allow-discards en la cabecera LUKS2 y libcryptsetup lo aplica en cada
+# apertura (initrd incluido, sin opciones en crypttab ni en la cmdline). Así
+# btrfs ve un dispositivo con discard y activa discard=async solo, ya en esta
+# instalación, y fstrim.timer no se salta la raíz.
+cryptsetup open --allow-discards --persistent --key-file "${keyfile}" "${root}" "${mapper}"
 mkfs.btrfs -f "/dev/mapper/${mapper}"
 
 # Subvolúmenes planos en el nivel superior. "@" queda como subvolumen por
